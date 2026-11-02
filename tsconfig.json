@@ -11,9 +11,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": "src",
     "paths": {
-      "~/*": ["./*"]
+      "~/*": ["./src/*"]
     },
 
     "strict": true,
@@ -21,6 +20,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "**/*.ts", "**/*.tsx"],
+  "include": ["src", "shim.d.ts", "uno.config.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

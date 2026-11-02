@@ -10,8 +10,8 @@ interface BoardProps {
   index: number;
   count: number;
   locations: number[];
-  answer: any[];
-  setAnswer: React.Dispatch<React.SetStateAction<any>>;
+  answer: number[];
+  setAnswer: React.Dispatch<React.SetStateAction<number[]>>;
 }
 
 const Board = ({ index, count, answer, setAnswer, locations, start }: BoardProps): JSX.Element => {
@@ -19,12 +19,13 @@ const Board = ({ index, count, answer, setAnswer, locations, start }: BoardProps
   const { warning } = useStore((state) => state);
 
   const margin: string[] = useMemo(() => {
-    let positions = [];
+    const positions = [];
     for (let i = 0; i < BOARD_LENGTH; i++) {
       const element = generatePosition();
       positions.push(element);
     }
     return positions;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- regenerate positions for each new round
   }, [count, warning]);
 
   return (
@@ -40,7 +41,7 @@ const Board = ({ index, count, answer, setAnswer, locations, start }: BoardProps
             {locations.includes(idx) && (
               <Cube
                 start={start}
-                clickCube={() => setAnswer((prev: any) => [...prev, idx])}
+                clickCube={() => setAnswer((prev) => [...prev, idx])}
                 key={idx}
                 active={locations[index] === idx || answer[answer.length - 1] === idx}
               />

@@ -48,12 +48,12 @@ export const generatePosition = (): string => {
   return `~ row ${positionFirst} ${positionSecond}`;
 };
 
-export const checkAnswer = (arr1: number[], arr2: number[], type: "forward" |"backward") => {
+export const checkAnswer = (arr1: number[], arr2: number[], type: 'forward' |'backward') => {
   if (arr1.length !== arr2.length) {
     return false;
   } else {
     for (let i = 0; i < arr1.length; i++) {
-      if (arr1[i] !== arr2[type==="forward" ?i : arr2.length-i-1]) {
+      if (arr1[i] !== arr2[type==='forward' ?i : arr2.length-i-1]) {
         return false;
       }
     }

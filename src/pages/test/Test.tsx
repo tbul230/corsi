@@ -25,6 +25,7 @@ const Test = (): JSX.Element => {
 
   const locations: number[] = useMemo(() => {
     return generateLocation(BOARD_LENGTH);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- regenerate locations for each new round
   }, [count, warning]);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ const Test = (): JSX.Element => {
     }, speed);
 
     return () => clearInterval(timeRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only step the sequence when index or flow changes
   }, [index, flow]);
 
   const startHandler = (): void => {

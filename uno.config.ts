@@ -1,10 +1,12 @@
-import { defineConfig, presetAttributify, presetUno, transformerDirectives } from 'unocss';
+import { defineConfig, presetAttributify, presetWind3, transformerDirectives } from 'unocss';
 
 export default defineConfig({
-  presets: [presetUno(), presetAttributify({
+  presets: [presetWind3(), presetAttributify({
     prefix: 'un-',
   })],
   transformers: [transformerDirectives()],
+  // UnoCSS 66 dropped display-* utilities; keep display="..." attributes working
+  rules: [[/^display-(.+)$/, ([, d]) => ({ display: d })]],
   theme: {
     animation: {
       keyframes: {

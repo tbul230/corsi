@@ -24,7 +24,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
     throw e;
   }
   return (
-    <Container className="max-w-4xl! pt-8">
+    <Container className="py-6 sm:py-10 lg:py-12">
       <SessionRunner initial={detail} />
     </Container>
   );

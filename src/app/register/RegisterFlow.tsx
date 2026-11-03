@@ -102,14 +102,14 @@ export default function RegisterFlow() {
   if (step === 'code' && registered) {
     return (
       <Card className="fade-up text-center">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-400/15 text-emerald-200">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
           <CheckIcon className="h-7 w-7" />
         </div>
         <h1 className="mt-4 text-2xl font-semibold">Welcome, {registered.participant.first_name}!</h1>
         <p className="mt-2 muted">You are registered. Please write down your personal access code:</p>
         <p
           data-testid="access-code"
-          className="mx-auto mt-5 w-fit rounded-2xl border border-white/20 bg-white/10 px-6 py-3 font-mono text-3xl font-semibold tracking-[0.3em]">
+          className="mx-auto mt-5 w-fit rounded-xl border border-line-strong bg-navy-950 px-6 py-3 font-mono text-3xl font-semibold tracking-[0.25em]">
           {registered.participant.access_code}
         </p>
         <p className="mx-auto mt-4 max-w-md text-sm muted">
@@ -117,7 +117,7 @@ export default function RegisterFlow() {
           shown on your progress dashboard.
         </p>
         <button className="btn btn-primary mt-8" onClick={() => { router.push('/dashboard'); router.refresh(); }}>
-          Continue to my dashboard <ArrowIcon className="h-5 w-5" />
+          Continue to my dashboard <ArrowIcon className="h-4 w-4" />
         </button>
       </Card>
     );
@@ -127,12 +127,12 @@ export default function RegisterFlow() {
     return (
       <form onSubmit={submitConsent} className="fade-up space-y-5">
         <div>
-          <Eyebrow>Step 2 of 2 · Information &amp; consent</Eyebrow>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Experiment agreement</h1>
+          <Eyebrow>Step 2 of 2</Eyebrow>
+          <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl">Experiment agreement</h1>
         </div>
         <Card className="space-y-4 text-sm leading-relaxed">
           <div>
-            <h2 className="font-semibold text-white">What is collected</h2>
+            <h2 className="font-semibold text-ink">What is collected</h2>
             <p className="muted">
               Your first and last name (to link your three sessions), your consent, which break you took and when, the
               exact break and test timestamps, and every Corsi trial: the sequence shown, the blocks you tapped,
@@ -141,14 +141,14 @@ export default function RegisterFlow() {
             </p>
           </div>
           <div>
-            <h2 className="font-semibold text-white">Who can see it</h2>
+            <h2 className="font-semibold text-ink">Who can see it</h2>
             <p className="muted">
               Only the researchers running this study (signed-in administrators) can see names and individual results.
               The public results page shows anonymised averages and participant codes such as “P04” — never names.
             </p>
           </div>
           <div>
-            <h2 className="font-semibold text-white">How it is used</h2>
+            <h2 className="font-semibold text-ink">How it is used</h2>
             <p className="muted">
               Results are analysed to compare Corsi performance after a video game break, a YouTube break and a
               screen-free break. Submitted results cannot be edited. This is a research task, not a medical or
@@ -163,7 +163,7 @@ export default function RegisterFlow() {
             return (
               <label
                 key={item.key}
-                className={`glass flex cursor-pointer gap-4 rounded-3xl p-5 transition ${checked ? 'ring-2 ring-sky-300/60' : ''}`}>
+                className={`flex cursor-pointer gap-4 rounded-xl border p-4 transition-colors sm:p-5 ${checked ? 'border-accent bg-accent/8' : 'border-line bg-navy-900 hover:border-line-strong'}`}>
                 <input
                   type="checkbox"
                   className="peer sr-only"
@@ -173,7 +173,7 @@ export default function RegisterFlow() {
                 />
                 <span
                   aria-hidden
-                  className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border transition peer-focus-visible:ring-2 peer-focus-visible:ring-sky-300 ${checked ? 'border-sky-200 bg-sky-200 text-navy-900' : 'border-white/30 bg-white/5'}`}>
+                  className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border transition peer-focus-visible:ring-2 peer-focus-visible:ring-accent ${checked ? 'border-accent bg-accent text-white' : 'border-line-strong bg-navy-950'}`}>
                   {checked ? <CheckIcon className="h-4 w-4" /> : null}
                 </span>
                 <span>
@@ -193,7 +193,7 @@ export default function RegisterFlow() {
           </button>
           <button type="submit" className="btn btn-primary" disabled={!allConsented || busy}>
             {busy ? 'Saving…' : 'I agree — register me'}
-            <ArrowIcon className="h-5 w-5" />
+            <ArrowIcon className="h-4 w-4" />
           </button>
         </div>
         {!allConsented ? <p className="text-right text-xs muted">All three agreements are required to continue.</p> : null}
@@ -204,12 +204,12 @@ export default function RegisterFlow() {
   return (
     <div className="fade-up space-y-5">
       <div>
-        <Eyebrow>{mode === 'new' ? 'Step 1 of 2 · Registration' : 'Welcome back'}</Eyebrow>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+        <Eyebrow>{mode === 'new' ? 'Step 1 of 2' : 'Welcome back'}</Eyebrow>
+        <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl">
           {mode === 'new' ? 'Participant registration' : 'Continue as a returning participant'}
         </h1>
       </div>
-      <div className="glass-soft inline-flex rounded-full p-1 text-sm" role="tablist">
+      <div className="inline-flex rounded-lg border border-line bg-navy-900 p-1 text-sm" role="tablist">
         {(['new', 'returning'] as Mode[]).map((m) => (
           <button
             key={m}
@@ -219,7 +219,7 @@ export default function RegisterFlow() {
               setMode(m);
               setError(null);
             }}
-            className={`rounded-full px-4 py-1.5 font-medium transition ${mode === m ? 'bg-white text-navy-900' : 'text-white/70 hover:text-white'}`}>
+            className={`rounded-md px-3.5 py-1.5 font-medium transition-colors ${mode === m ? 'bg-navy-700 text-ink' : 'text-ink-2 hover:text-ink'}`}>
             {m === 'new' ? 'New participant' : 'Returning participant'}
           </button>
         ))}
@@ -246,7 +246,7 @@ export default function RegisterFlow() {
                 aria-invalid={Boolean(fieldErrors.first)}
                 required
               />
-              {fieldErrors.first ? <p className="mt-1.5 text-xs text-red-200">{fieldErrors.first}</p> : null}
+              {fieldErrors.first ? <p className="mt-1.5 text-xs text-red-300">{fieldErrors.first}</p> : null}
             </div>
             <div>
               <label htmlFor="last" className="mb-1.5 block text-sm font-medium">
@@ -262,7 +262,7 @@ export default function RegisterFlow() {
                 aria-invalid={Boolean(fieldErrors.last)}
                 required
               />
-              {fieldErrors.last ? <p className="mt-1.5 text-xs text-red-200">{fieldErrors.last}</p> : null}
+              {fieldErrors.last ? <p className="mt-1.5 text-xs text-red-300">{fieldErrors.last}</p> : null}
             </div>
           </div>
           {mode === 'returning' ? (
@@ -285,14 +285,14 @@ export default function RegisterFlow() {
           <div className="flex justify-end">
             <button type="submit" className="btn btn-primary" disabled={busy}>
               {busy ? 'Checking…' : mode === 'new' ? 'Continue' : 'Sign in'}
-              <ArrowIcon className="h-5 w-5" />
+              <ArrowIcon className="h-4 w-4" />
             </button>
           </div>
         </form>
       </Card>
       <p className="text-center text-xs muted">
         Researcher?{' '}
-        <a href="/test-mode" className="underline underline-offset-2 hover:text-white">
+        <a href="/test-mode" className="underline underline-offset-2 hover:text-ink">
           Admin test mode
         </a>
       </p>

@@ -6,8 +6,10 @@ export const metadata: Metadata = { title: 'Admin test mode', robots: { index: f
 
 export default function TestModePage() {
   return (
-    <Container className="max-w-md! pt-16">
+    <Container className="flex flex-1 items-center justify-center py-12">
+      <div className="w-full max-w-md">
       <TestModeForm />
+      </div>
     </Container>
   );
 }

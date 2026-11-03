@@ -11,7 +11,7 @@ export default function RedoButton({ condition, label = 'Redo' }: { condition: C
   const [busy, setBusy] = useState(false);
   return (
     <button
-      className="rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-100 hover:bg-amber-300/20 disabled:opacity-50"
+      className="rounded-md border border-amber-300/40 bg-amber-300/10 px-2.5 py-0.5 text-xs font-medium text-amber-100 hover:bg-amber-300/20 disabled:opacity-50"
       disabled={busy}
       data-testid={`redo-${condition}`}
       onClick={async () => {

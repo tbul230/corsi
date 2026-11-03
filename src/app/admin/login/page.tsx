@@ -11,8 +11,10 @@ export default async function AdminLoginPage() {
   const { isAdmin } = await getAdmin();
   if (isAdmin) redirect('/admin');
   return (
-    <Container className="max-w-md! pt-16">
+    <Container className="flex flex-1 items-center justify-center py-12">
+      <div className="w-full max-w-md">
       <LoginForm />
+      </div>
     </Container>
   );
 }

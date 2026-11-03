@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { Container, Eyebrow } from '@/components/ui';
+import { Container, PageHeader } from '@/components/ui';
 import { loadParticipantState } from '@/lib/participant-server';
 import { progressOf } from '@/lib/progress';
 import type { ParticipantState } from '@/lib/types';
@@ -17,15 +17,12 @@ export default async function SelectPage() {
   if (state.participant.experiment_completed) redirect('/dashboard');
 
   return (
-    <Container className="pt-10">
-      <div className="fade-up">
-        <Eyebrow>Break selection</Eyebrow>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Choose your break condition</h1>
-        <p className="mt-2 max-w-2xl muted">
-          Each condition is a 15-minute break followed immediately by the Corsi test. You can complete each condition
-          only once. Once a break starts it cannot be changed, paused or restarted.
-        </p>
-      </div>
+    <Container className="py-8 sm:py-10 lg:py-12">
+      <PageHeader
+        eyebrow="Break selection"
+        title="Choose your break condition"
+        description="Each condition is a 15-minute break followed immediately by the Corsi test. You can do each condition only once, and a break can't be changed, paused or restarted after it starts."
+      />
       <BreakSelector sessions={state.sessions} recommended={recommended} />
     </Container>
   );

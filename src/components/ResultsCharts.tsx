@@ -52,7 +52,7 @@ function ChartCard({
   className?: string;
 }) {
   return (
-    <section className={`glass rounded-[28px] p-5 sm:p-6 ${className}`}>
+    <section className={`glass rounded-2xl p-5 sm:p-6 ${className}`}>
       <h3 className="text-base font-semibold">{title}</h3>
       {subtitle ? <p className="mt-0.5 text-xs muted">{subtitle}</p> : null}
       <div className="mt-4">{children}</div>
@@ -61,7 +61,7 @@ function ChartCard({
 }
 
 function Empty({ text }: { text: string }) {
-  return <div className="grid h-[260px] place-items-center rounded-2xl border border-dashed border-white/15 text-sm muted">{text}</div>;
+  return <div className="grid h-[260px] place-items-center rounded-2xl border border-dashed border-line-strong text-sm muted">{text}</div>;
 }
 
 function LegendText({ value }: { value: string }) {
@@ -120,7 +120,7 @@ export default function ResultsCharts({
 
   if (rows.length === 0) {
     return (
-      <div className="glass rounded-[28px] p-10 text-center" data-testid="results-empty">
+      <div className="glass rounded-2xl p-10 text-center" data-testid="results-empty">
         <p className="text-lg font-semibold">No completed tests yet</p>
         <p className="mt-1 text-sm muted">
           Charts appear automatically as soon as the first participant finishes a Corsi test.
@@ -135,8 +135,8 @@ export default function ResultsCharts({
   return (
     <div className="space-y-5" data-testid="results-charts">
       {/* Filters — one row above the charts */}
-      <div className="glass-soft flex flex-wrap items-center gap-3 rounded-3xl p-3">
-        <span className="px-2 text-xs font-medium uppercase tracking-wider muted">Conditions</span>
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-navy-900 p-3">
+        <span className="px-2 text-xs font-medium text-ink-3">Conditions</span>
         {CONDITIONS.map((c) => {
           const on = activeConditions.includes(c);
           return (
@@ -144,21 +144,21 @@ export default function ResultsCharts({
               key={c}
               onClick={() => toggleCondition(c)}
               aria-pressed={on}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${on ? 'border-white/30 bg-white/12 text-white' : 'border-white/10 text-white/50'}`}>
+              className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors ${on ? 'border-line-strong bg-navy-800 text-ink' : 'border-line text-ink-3'}`}>
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: on ? CONDITION_INFO[c].accent : 'transparent', border: `1.5px solid ${CONDITION_INFO[c].accent}` }} />
               {CONDITION_INFO[c].short}
             </button>
           );
         })}
         <span className="ml-auto flex items-center gap-2">
-          <label htmlFor="pfilter" className="text-xs font-medium uppercase tracking-wider muted">
+          <label htmlFor="pfilter" className="text-xs font-medium text-ink-3">
             {participantLabel}
           </label>
           <select
             id="pfilter"
             value={participant}
             onChange={(e) => setParticipant(e.target.value)}
-            className="rounded-full border border-white/20 bg-navy-900 px-3 py-1.5 text-sm">
+            className="rounded-full border border-line-strong bg-navy-950 px-3 py-1.5">
             <option value="all">All</option>
             {participants.map((p) => (
               <option key={p} value={p}>
@@ -295,9 +295,9 @@ export default function ResultsCharts({
           {showTable ? 'Hide' : 'Show'} data table
         </button>
         {showTable ? (
-          <div className="glass mt-3 overflow-x-auto rounded-[24px] p-4">
+          <div className="glass mt-3 overflow-x-auto rounded-2xl p-4">
             <table className="w-full min-w-[480px] text-sm">
-              <thead className="text-left text-xs uppercase tracking-wider muted">
+              <thead className="text-left text-xs font-medium text-ink-3">
                 <tr>
                   <th className="px-3 py-2 font-medium">{participantLabel}</th>
                   {activeConditions.map((c) => (
@@ -305,7 +305,7 @@ export default function ResultsCharts({
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-line">
                 {matrix.map((m) => (
                   <tr key={m.participant}>
                     <td className="px-3 py-2">{m.participant}</td>

@@ -1,32 +1,46 @@
 import Link from 'next/link';
-import { Container, Eyebrow } from '@/components/ui';
+import { Container } from '@/components/ui';
 import { ArrowIcon, ConditionIcon } from '@/components/icons';
 import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
 import { getParticipantToken } from '@/lib/participant-server';
 
 export const dynamic = 'force-dynamic';
 
-const STEPS = [
-  ['Register', 'Enter your real first and last name.'],
-  ['Consent', 'Read what is collected and accept the three agreements.'],
-  ['Choose a break', 'Pick one of the three break conditions.'],
-  ['15-minute break', 'A real countdown timer — the test cannot start early.'],
-  ['Corsi test', 'Repeat the order in which blocks light up.'],
-  ['Saved', 'Your results are stored securely. Repeat for all three breaks.']
+const STEPS: [string, string][] = [
+  ['Register', 'Your first and last name, plus three short agreements.'],
+  ['Take a 15-minute break', 'Video game, YouTube, or no screens. A timer keeps it exact.'],
+  ['Do the Corsi test', 'Watch blocks light up, then tap them back in the same order.'],
+  ['Repeat twice more', 'One session per break type, in any order, on any device.']
 ];
 
-function HeroGrid() {
-  const lit = [1, 5, 6];
+/** Static illustration of a trial: numbered order of the lit blocks. */
+function TrialIllustration() {
+  const order: Record<number, number> = { 1: 1, 5: 2, 6: 3 };
   return (
-    <div className="glass mx-auto grid w-full max-w-[300px] grid-cols-3 gap-3 rounded-[32px] p-4 sm:max-w-[340px]">
-      {Array.from({ length: 9 }, (_, i) => (
-        <div
-          key={i}
-          className="corsi-block"
-          data-lit={lit.includes(i)}
-          style={lit.includes(i) ? { animation: `pulse 2.4s ${lit.indexOf(i) * 0.8}s infinite` } : undefined}
-        />
-      ))}
+    <div className="glass rounded-2xl p-5 sm:p-6">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium">Example trial</span>
+        <span className="text-ink-3">3 blocks</span>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2.5 sm:gap-3">
+        {Array.from({ length: 9 }, (_, i) => (
+          <div
+            key={i}
+            className="corsi-block relative grid place-items-center"
+            data-lit={order[i] === 1 ? 'true' : undefined}
+            style={order[i] && order[i] !== 1 ? { background: '#2b4a8f', borderColor: '#3d62b5' } : undefined}>
+            {order[i] ? (
+              <span className={`text-lg font-semibold tabular-nums ${order[i] === 1 ? 'text-navy-950' : 'text-white/90'}`}>
+                {order[i]}
+              </span>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-sm text-ink-2">
+        Blocks light up one at a time. When it&apos;s your turn, tap them in the same order. Each correct answer adds
+        one more block.
+      </p>
     </div>
   );
 }
@@ -34,68 +48,86 @@ function HeroGrid() {
 export default async function Home() {
   const signedIn = Boolean(await getParticipantToken());
   return (
-    <Container className="pb-8 pt-10 sm:pt-16">
-      <section className="grid items-center gap-12 lg:grid-cols-[1.15fr_1fr]">
-        <div className="fade-up">
-          <Eyebrow>Visuospatial working-memory study</Eyebrow>
-          <h1 className="mt-4 text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-            The Corsi Block-Tapping Experiment
-          </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed muted">
-            Does how you spend a short break change how much you can hold in mind? This experiment measures your{' '}
-            <span className="text-white">visuospatial short-term memory span</span> — the longest sequence of
-            blocks you can remember and tap back in order — after three different 15-minute breaks.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href={signedIn ? '/dashboard' : '/register'} className="btn btn-primary px-7 py-3.5 text-lg">
-              {signedIn ? 'Continue Experiment' : 'Start Experiment'}
-              <ArrowIcon className="h-5 w-5" />
-            </Link>
-            <Link href="/methodology" className="btn btn-glass">
-              How it works
-            </Link>
-          </div>
-          <p className="mt-4 text-sm muted">About 20–25 minutes per condition · three conditions in total</p>
-        </div>
-        <div className="fade-up" style={{ animationDelay: '120ms' }}>
-          <HeroGrid />
-        </div>
-      </section>
-
-      <section className="mt-20">
-        <Eyebrow>Three break conditions</Eyebrow>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {CONDITIONS.map((c) => (
-            <div key={c} className="glass rounded-[28px] p-6">
-              <div
-                className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10"
-                style={{ color: CONDITION_INFO[c].accent }}>
-                <ConditionIcon condition={c} className="h-7 w-7" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">{CONDITION_INFO[c].title}</h3>
-              <p className="mt-1 text-sm muted">{CONDITION_INFO[c].description}</p>
+    <>
+      <Container className="py-10 sm:py-14 lg:py-20">
+        <section className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:gap-16 xl:gap-24">
+          <div className="fade-up">
+            <p className="text-sm font-medium text-accent">Visuospatial working-memory study</p>
+            <h1 className="mt-3 text-[2.15rem] font-semibold leading-[1.08] sm:text-5xl lg:text-[3.6rem]">
+              The Corsi Block-Tapping Experiment
+            </h1>
+            <p className="mt-5 max-w-[38rem] text-[1.05rem] leading-relaxed text-ink-2 lg:text-lg">
+              Does the way you spend a short break change how much you can hold in mind? We measure your Corsi span, the
+              longest sequence of blocks you can remember and repeat, after three different 15-minute breaks.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href={signedIn ? '/dashboard' : '/register'} className="btn btn-primary px-6">
+                {signedIn ? 'Continue experiment' : 'Start Experiment'}
+                <ArrowIcon className="h-4 w-4" />
+              </Link>
+              <Link href="/methodology" className="btn btn-glass">
+                Read the method
+              </Link>
             </div>
-          ))}
-        </div>
-      </section>
+            <dl className="mt-10 grid max-w-[38rem] grid-cols-3 divide-x divide-line border-y border-line">
+              {[
+                ['3', 'break conditions'],
+                ['15:00', 'per break'],
+                ['~5 min', 'per test']
+              ].map(([v, l]) => (
+                <div key={l} className="px-3 py-4 first:pl-0 sm:px-5">
+                  <dt className="text-xl font-semibold tabular-nums sm:text-2xl">{v}</dt>
+                  <dd className="mt-0.5 text-xs text-ink-3 sm:text-sm">{l}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <div className="fade-up mx-auto w-full max-w-md lg:max-w-none" style={{ animationDelay: '80ms' }}>
+            <TrialIllustration />
+          </div>
+        </section>
+      </Container>
 
-      <section className="mt-20">
-        <Eyebrow>Procedure</Eyebrow>
-        <ol className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {STEPS.map(([title, text], i) => (
-            <li key={title} className="glass-soft flex gap-4 rounded-2xl p-5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-sm font-semibold tabular-nums">
-                {i + 1}
-              </span>
-              <div>
-                <p className="font-medium">{title}</p>
-                <p className="text-sm muted">{text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <style>{`@keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(.55)}}`}</style>
-    </Container>
+      <div className="border-t border-line bg-navy-900/40">
+        <Container className="py-12 lg:py-16">
+          <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
+            <section>
+              <h2 className="text-xl font-semibold sm:text-2xl">The three breaks</h2>
+              <p className="mt-2 text-ink-2">You complete each one once. They can be done in any order.</p>
+              <ul className="mt-6 divide-y divide-line border-y border-line">
+                {CONDITIONS.map((c) => (
+                  <li key={c} className="flex items-start gap-4 py-4">
+                    <span
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-line bg-navy-850"
+                      style={{ color: CONDITION_INFO[c].accent }}>
+                      <ConditionIcon condition={c} className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="font-medium">{CONDITION_INFO[c].title}</p>
+                      <p className="text-sm text-ink-2">{CONDITION_INFO[c].description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+            <section>
+              <h2 className="text-xl font-semibold sm:text-2xl">How a session works</h2>
+              <p className="mt-2 text-ink-2">About 20 to 25 minutes each time.</p>
+              <ol className="mt-6 divide-y divide-line border-y border-line">
+                {STEPS.map(([title, text], i) => (
+                  <li key={title} className="flex gap-4 py-4">
+                    <span className="mt-0.5 font-mono text-sm text-ink-3 tabular-nums">0{i + 1}</span>
+                    <div>
+                      <p className="font-medium">{title}</p>
+                      <p className="text-sm text-ink-2">{text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          </div>
+        </Container>
+      </div>
+    </>
   );
 }

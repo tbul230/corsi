@@ -14,7 +14,8 @@ export default async function AdminPage() {
   if (!user) redirect('/admin/login');
   if (!isAdmin) {
     return (
-      <Container className="max-w-md! pt-16">
+      <Container className="flex flex-1 items-center justify-center py-12">
+      <div className="w-full max-w-md">
         <Card className="text-center">
           <h1 className="text-xl font-semibold">Access denied</h1>
           <p className="mt-2 text-sm muted">
@@ -22,7 +23,8 @@ export default async function AdminPage() {
           </p>
           <div className="mt-6"><SignOutButton /></div>
         </Card>
-      </Container>
+        </div>
+    </Container>
     );
   }
   const data = await loadAdminData(supabase);

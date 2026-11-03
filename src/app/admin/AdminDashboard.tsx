@@ -131,7 +131,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
           <p className="text-sm muted">Signed in as {email}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="glass-soft flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-sm">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-line-strong px-3 text-sm">
             <input
               type="checkbox"
               checked={includeTest}
@@ -159,14 +159,14 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
         <Alert tone="info">Admin test runs are included in the tables and charts below. Turn this off for real study data.</Alert>
       ) : null}
 
-      <div className="glass-soft flex gap-1 overflow-x-auto rounded-full p-1 text-sm" role="tablist">
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-line bg-navy-900 p-1 text-sm" role="tablist">
         {tabs.map(([key, label]) => (
           <button
             key={key}
             role="tab"
             aria-selected={tab === key}
             onClick={() => setTab(key)}
-            className={`whitespace-nowrap rounded-full px-4 py-1.5 font-medium transition ${tab === key ? 'bg-white text-navy-900' : 'text-white/70 hover:text-white'}`}>
+            className={`whitespace-nowrap rounded-md px-3.5 py-1.5 font-medium transition-colors ${tab === key ? 'bg-navy-700 text-ink' : 'text-ink-2 hover:text-ink'}`}>
             {label}
           </button>
         ))}
@@ -180,7 +180,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
             <Stat label="Completed sessions" value={completedSessions.length} hint={`of ${participants.length * 3} possible`} />
             <Stat label="Unfinished sessions" value={unfinished.length} />
           </div>
-          <div className="glass rounded-[28px] p-5">
+          <div className="glass rounded-2xl p-5">
             <h3 className="font-semibold">Completion statistics</h3>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div className="grid grid-cols-4 gap-2 text-center text-sm">
@@ -219,12 +219,12 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
             onSelectSession={setSelectedSession}
           />
         ) : (
-          <div className="glass overflow-x-auto rounded-[28px] p-3">
+          <div className="glass overflow-x-auto rounded-2xl p-3">
             {participants.length === 0 ? (
               <p className="p-6 text-center muted">No participants yet.</p>
             ) : (
               <table className="w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wider muted">
+                <thead className="text-left text-xs font-medium text-ink-3">
                   <tr>
                     <Th>Name</Th>
                     <Th>Registered</Th>
@@ -236,11 +236,11 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
                     <Th>{''}</Th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-line">
                   {participants.map((p) => {
                     const ps = sessions.filter((s) => s.participant_id === p.id);
                     return (
-                      <tr key={p.id} className="hover:bg-white/5">
+                      <tr key={p.id} className="hover:bg-navy-850">
                         <Td>
                           {p.first_name} {p.last_name}
                           {p.is_test ? <span className="ml-2 rounded-full bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-100">Test</span> : null}
@@ -258,7 +258,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
                         <Td>{ps.filter((s) => s.status === 'completed').length}/3</Td>
                         <Td>
                           <span className="flex items-center gap-3">
-                            <button className="text-sky-200 hover:underline" onClick={() => setSelectedParticipant(p.id)}>
+                            <button className="text-accent hover:underline" onClick={() => setSelectedParticipant(p.id)}>
                               View
                             </button>
                             <DeleteButton
@@ -294,15 +294,15 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
               Break interruptions = the break page was closed, refreshed or navigated away from. Test interruptions = a
               trial was shown but the page was left before answering (a new sequence was issued on return).
             </p>
-            <div className="glass overflow-x-auto rounded-[28px] p-3">
+            <div className="glass overflow-x-auto rounded-2xl p-3">
               {interrupted.length === 0 ? (
                 <p className="p-6 text-center muted">No interruptions recorded.</p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase tracking-wider muted">
+                  <thead className="text-left text-xs font-medium text-ink-3">
                     <tr><Th>Participant</Th><Th>Condition</Th><Th right>Break interruptions</Th><Th right>Tab switches</Th><Th right>Test interruptions</Th><Th>Event log</Th></tr>
                   </thead>
-                  <tbody className="divide-y divide-white/10">
+                  <tbody className="divide-y divide-line">
                     {interrupted.map((s) => {
                       const ev = events.filter((e) => e.session_id === s.id);
                       return (
@@ -331,15 +331,15 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
       {tab === 'export' ? <ExportPanel /> : null}
 
       {tab === 'deletions' ? (
-        <div className="glass overflow-x-auto rounded-[28px] p-3">
+        <div className="glass overflow-x-auto rounded-2xl p-3">
           {data.deletions.length === 0 ? (
             <p className="p-6 text-center muted">Nothing has been deleted.</p>
           ) : (
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-wider muted">
+              <thead className="text-left text-xs font-medium text-ink-3">
                 <tr><Th>When</Th><Th>Type</Th><Th>What</Th><Th>By</Th></tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-line">
                 {[...data.deletions].reverse().map((d) => (
                   <tr key={d.id}>
                     <Td>{formatDateTime(d.deleted_at)}</Td>
@@ -371,19 +371,19 @@ function SessionTable({
   name: (pid: string) => string;
   onOpen: (s: AdminSession) => void;
 }) {
-  if (sessions.length === 0) return <div className="glass rounded-[28px] p-6 text-center muted">No sessions.</div>;
+  if (sessions.length === 0) return <div className="glass rounded-2xl p-6 text-center muted">No sessions.</div>;
   return (
-    <div className="glass overflow-x-auto rounded-[28px] p-3">
+    <div className="glass overflow-x-auto rounded-2xl p-3">
       <table className="w-full text-sm">
-        <thead className="text-left text-xs uppercase tracking-wider muted">
+        <thead className="text-left text-xs font-medium text-ink-3">
           <tr>
             <Th>Participant</Th><Th>Condition</Th><Th right>Order</Th><Th>Status</Th><Th>Break start</Th><Th>Break completed</Th>
             <Th right>Break length</Th><Th>Test start</Th><Th>Test end</Th><Th right>Span</Th><Th right>Accuracy</Th><Th>{''}</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/10">
+        <tbody className="divide-y divide-line">
           {sessions.map((s) => (
-            <tr key={s.id} className="hover:bg-white/5">
+            <tr key={s.id} className="hover:bg-navy-850">
               <Td>{name(s.participant_id)}</Td>
               <Td>{CONDITION_INFO[s.condition].short}</Td>
               <Td right>{s.condition_order}</Td>
@@ -395,7 +395,7 @@ function SessionTable({
               <Td>{formatDateTime(s.test_completed_at)}</Td>
               <Td right>{s.corsi_span ?? '—'}</Td>
               <Td right>{formatPct(s.accuracy)}</Td>
-              <Td><button className="text-sky-200 hover:underline" onClick={() => onOpen(s)}>Details</button></Td>
+              <Td><button className="text-accent hover:underline" onClick={() => onOpen(s)}>Details</button></Td>
             </tr>
           ))}
         </tbody>
@@ -428,8 +428,8 @@ function ParticipantDetail({
 
   return (
     <div className="space-y-5">
-      <button className="text-sm text-sky-200 hover:underline" onClick={onBack}>← All participants</button>
-      <div className="glass rounded-[28px] p-6">
+      <button className="text-sm text-accent hover:underline" onClick={onBack}>← All participants</button>
+      <div className="glass rounded-2xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-semibold">
             {p.first_name} {p.last_name}
@@ -448,7 +448,7 @@ function ParticipantDetail({
           <p>Consent (all three): {p.consent_participation && p.consent_quiet_environment && p.consent_guidelines ? 'Yes' : 'No'} · {formatDateTime(p.consented_at)}</p>
           <p>Assigned (counterbalanced) order: {p.assigned_order.map((c) => CONDITION_INFO[c as Condition].short).join(' → ')}</p>
           <p>Actual order: {ps.map((s) => CONDITION_INFO[s.condition].short).join(' → ') || '—'}</p>
-          <p>Access code: <span className="font-mono text-white">{p.access_code}</span></p>
+          <p>Access code: <span className="font-mono text-ink">{p.access_code}</span></p>
           <p>Experiment completed: {p.experiment_completed ? formatDateTime(p.experiment_completed_at) : 'No'}</p>
         </div>
       </div>
@@ -460,7 +460,7 @@ function ParticipantDetail({
               key={c}
               disabled={!s}
               onClick={() => s && onSelectSession(s.id)}
-              className={`glass rounded-[24px] p-5 text-left ${sel?.id === s?.id && s ? 'ring-2 ring-sky-200/70' : ''} ${!s ? 'opacity-60' : 'hover:bg-white/10'}`}>
+              className={`glass rounded-2xl p-5 text-left ${sel?.id === s?.id && s ? 'ring-2 ring-accent' : ''} ${!s ? 'opacity-60' : 'hover:bg-white/10'}`}>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2 font-semibold"><ConditionIcon condition={c} className="h-5 w-5" style={{ color: CONDITION_INFO[c].accent }} />{CONDITION_INFO[c].short}</span>
                 <StatusPill status={!s ? 'not_started' : s.status === 'completed' ? 'completed' : 'in_progress'} />
@@ -473,7 +473,7 @@ function ParticipantDetail({
       </div>
       {sel ? (
         <div className="space-y-4">
-          <div className="glass rounded-[28px] p-6">
+          <div className="glass rounded-2xl p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="font-semibold">{CONDITION_INFO[sel.condition].title} — exact timestamps</h3>
               <DeleteButton
@@ -504,7 +504,7 @@ function ParticipantDetail({
                 ['Correct / incorrect / attempts', `${sel.correct_trials ?? '—'} / ${sel.incorrect_trials ?? '—'} / ${sel.total_attempts ?? '—'}`],
                 ['Accuracy', formatPct(sel.accuracy)]
               ].map(([k, v]) => (
-                <div key={String(k)} className="flex justify-between gap-3 border-b border-white/5 py-1">
+                <div key={String(k)} className="flex justify-between gap-3 border-b border-line py-1">
                   <dt className="muted">{k}</dt>
                   <dd className="text-right tabular-nums">{v}</dd>
                 </div>
@@ -516,16 +516,16 @@ function ParticipantDetail({
               </p>
             ) : null}
           </div>
-          <div className="glass overflow-x-auto rounded-[28px] p-3">
+          <div className="glass overflow-x-auto rounded-2xl p-3">
             <h3 className="px-3 pt-3 font-semibold">Trial-by-trial results</h3>
             {st.length === 0 ? (
               <p className="p-6 text-center muted">No trials recorded.</p>
             ) : (
               <table className="mt-2 w-full text-sm">
-                <thead className="text-left text-xs uppercase tracking-wider muted">
+                <thead className="text-left text-xs font-medium text-ink-3">
                   <tr><Th>#</Th><Th right>Length</Th><Th right>Attempt</Th><Th>Sequence (1–9)</Th><Th>Response</Th><Th>Result</Th><Th right>RT</Th><Th>Presented</Th><Th>Responded</Th></tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-line">
                   {st.map((t) => (
                     <tr key={t.id}>
                       <Td>{t.trial_number}</Td>
@@ -577,7 +577,7 @@ function ExportPanel() {
   ];
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <div className="glass rounded-[28px] p-6">
+      <div className="glass rounded-2xl p-6">
         <h2 className="text-lg font-semibold">Export CSV</h2>
         <label className="mt-2 flex items-center gap-2 text-sm muted">
           <input type="checkbox" checked={withTest} onChange={(e) => setWithTest(e.target.checked)} className="h-4 w-4 accent-amber-300" />
@@ -590,12 +590,12 @@ function ExportPanel() {
                 <span className="block font-medium">{label}.csv</span>
                 <span className="block text-xs muted">{desc}</span>
               </span>
-              <span className="text-sm text-sky-200">Download</span>
+              <span className="text-sm text-accent">Download</span>
             </a>
           ))}
         </div>
       </div>
-      <form onSubmit={changePassword} className="glass space-y-3 rounded-[28px] p-6">
+      <form onSubmit={changePassword} className="glass space-y-3 rounded-2xl p-6">
         <h2 className="text-lg font-semibold">Change administrator password</h2>
         <input type="password" className="input" placeholder="New password (12+ characters)" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
         <input type="password" className="input" placeholder="Repeat new password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />

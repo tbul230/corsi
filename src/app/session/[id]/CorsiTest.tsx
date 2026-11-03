@@ -149,32 +149,50 @@ export default function CorsiTest({
   }
 
   if (phase === 'intro') {
+    const steps: [string, React.ReactNode][] = [
+      ['Watch', 'Blocks light up one at a time.'],
+      ['Remember', <>Keep the <strong className="text-ink">order</strong> in mind.</>],
+      ['Repeat', <>When it says <em>“Your turn”</em>, tap the blocks in that same order.</>],
+      ['Grow', 'Each correct answer adds one block. Two misses at the same length end the test.']
+    ];
     return (
-      <div className="fade-up mx-auto max-w-2xl">
-        <div className="glass rounded-[36px] p-7 text-center sm:p-10">
+      <div className="fade-up grid gap-6 lg:min-h-[calc(100dvh-14rem)] lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
+        <section className="glass rounded-2xl p-6 sm:p-8 lg:p-10">
           {!resumed ? (
-            <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-4 py-1.5 text-sm text-emerald-100">
+            <p className="inline-flex items-center gap-2 rounded-md bg-emerald-500/12 px-2.5 py-1 text-sm font-medium text-emerald-300">
               <CheckIcon className="h-4 w-4" /> {CONDITION_INFO[session.condition].title} complete
-            </div>
+            </p>
           ) : null}
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="mt-4 text-[1.65rem] font-semibold sm:text-3xl lg:text-4xl">
             {resumed ? 'Resume your Corsi test' : 'Corsi Block-Tapping Test'}
           </h1>
-          <ol className="mx-auto mt-6 max-w-md space-y-3 text-left text-white/85">
-            <li className="flex gap-3"><span className="font-semibold text-sky-200">1</span>Watch the blocks light up one at a time.</li>
-            <li className="flex gap-3"><span className="font-semibold text-sky-200">2</span>Remember the <strong>order</strong> in which they light up.</li>
-            <li className="flex gap-3"><span className="font-semibold text-sky-200">3</span>When the grid says <em>“Your turn”</em>, tap the blocks in that same order.</li>
-            <li className="flex gap-3"><span className="font-semibold text-sky-200">4</span>Sequences start with 2 blocks and grow by one after each correct answer. The test ends after two misses at the same length.</li>
+          <ol className="mt-6 divide-y divide-line border-y border-line">
+            {steps.map(([t, d], i) => (
+              <li key={t} className="flex gap-4 py-4">
+                <span className="mt-0.5 font-mono text-sm text-ink-3">0{i + 1}</span>
+                <div>
+                  <p className="font-medium">{t}</p>
+                  <p className="text-sm text-ink-2">{d}</p>
+                </div>
+              </li>
+            ))}
           </ol>
-          <p className="mx-auto mt-5 max-w-md text-sm muted">
-            Once started, the test cannot be paused or restarted. Do not write anything down or use any help.
-            {resumed ? ' Because the test was interrupted, you will continue at your current sequence length with a new sequence.' : ''}
+        </section>
+        <aside className="glass flex flex-col justify-center rounded-2xl p-6 sm:p-8">
+          <div className="mx-auto grid w-40 grid-cols-3 gap-1.5" aria-hidden>
+            {Array.from({ length: 9 }, (_, i) => (
+              <span key={i} className="corsi-block" data-lit={i === 4 ? 'true' : undefined} />
+            ))}
+          </div>
+          <p className="mt-6 text-center text-sm text-ink-2">
+            Once started, the test can&apos;t be paused or restarted. Don&apos;t write anything down or use any help.
+            {resumed ? ' Because the test was interrupted, you will continue at your current length with a new sequence.' : ''}
           </p>
           {error ? <div className="mt-4"><Alert>{error}</Alert></div> : null}
-          <button className="btn btn-primary mt-7 px-8 py-3.5 text-lg" onClick={() => void begin()} data-testid="begin-test">
-            {resumed ? 'Resume test' : "I'm ready — begin the test"} <ArrowIcon className="h-5 w-5" />
+          <button className="btn btn-primary mt-6 w-full" onClick={() => void begin()} data-testid="begin-test">
+            {resumed ? 'Resume test' : "I'm ready, begin the test"} <ArrowIcon className="h-4 w-4" />
           </button>
-        </div>
+        </aside>
       </div>
     );
   }
@@ -198,12 +216,12 @@ export default function CorsiTest({
     // Full-screen, distraction-free test surface
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-navy-950 px-4" data-testid="corsi-surface">
       <div className="mb-6 text-center">
-        <p className="text-xs uppercase tracking-[0.25em] text-white/45" data-testid="trial-meta">
+        <p className="text-sm tabular-nums text-ink-3" data-testid="trial-meta">
           {trial ? `Trial ${trial.trial_number} · ${trial.sequence_length} blocks` : ' '}
         </p>
         <p
           className={`mt-2 h-9 text-2xl font-semibold transition-colors ${
-            phase === 'feedback' ? (feedback ? 'text-emerald-300' : 'text-red-300') : phase === 'respond' ? 'text-sky-200' : 'text-white/80'
+            phase === 'feedback' ? (feedback ? 'text-emerald-300' : 'text-red-300') : phase === 'respond' ? 'text-accent' : 'text-ink'
           }`}
           data-testid="status"
           aria-live="polite">
@@ -211,7 +229,7 @@ export default function CorsiTest({
         </p>
       </div>
       <div
-        className="grid w-full max-w-[min(92vw,62vh,520px)] grid-cols-3 gap-3 sm:gap-4"
+        className="grid w-full max-w-[min(92vw,64vh,600px)] grid-cols-3 gap-3 sm:gap-4"
         data-phase={phase}
         data-testid="corsi-grid">
         {Array.from({ length: CORSI_RULES.blocks }, (_, i) => (
@@ -239,7 +257,7 @@ export default function CorsiTest({
       <div className="mt-6 flex h-4 gap-2" aria-hidden>
         {trial && (phase === 'respond' || phase === 'submitting' || phase === 'feedback')
           ? Array.from({ length: trial.sequence_length }, (_, i) => (
-              <span key={i} className={`h-2.5 w-2.5 rounded-full ${i < response.length ? 'bg-sky-200' : 'bg-white/15'}`} />
+              <span key={i} className={`h-2.5 w-2.5 rounded-full ${i < response.length ? 'bg-accent' : 'bg-navy-700'}`} />
             ))
           : null}
       </div>

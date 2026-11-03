@@ -8,7 +8,7 @@ import { CheckIcon, ConditionIcon } from '@/components/icons';
 import { api, ApiError } from '@/lib/api';
 import { BREAK_SECONDS, CONDITION_INFO } from '@/lib/constants';
 import { playChime } from '@/lib/chime';
-import { formatClock, formatDateTime } from '@/lib/format';
+import { formatClock } from '@/lib/format';
 import type { SessionDetail, SessionSummary } from '@/lib/types';
 
 const TRANSITION_MS = 3500;
@@ -169,102 +169,121 @@ export default function BreakTimer({
   const fraction = remainingMs === null ? 1 : Math.max(0, Math.min(1, remainingMs / (BREAK_SECONDS * 1000)));
 
   return (
-    <div className="fade-up mx-auto max-w-2xl text-center">
-      <div className="glass relative overflow-hidden rounded-[40px] px-6 py-10 sm:px-12 sm:py-14">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full blur-3xl"
-          style={{ background: info.accent, opacity: 0.18 }}
-        />
-        <div className="relative">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-white/10" style={{ color: info.accent }}>
-            <ConditionIcon condition={session.condition} className="h-8 w-8" />
-          </div>
-          <h1 className="mt-4 text-sm font-semibold uppercase tracking-[0.25em] text-white/90" data-testid="break-title">
+    <div className="fade-up grid gap-6 lg:min-h-[calc(100dvh-14rem)] lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
+      {/* Timer — the main element */}
+      <section className="glass flex flex-col items-center justify-center rounded-2xl px-5 py-10 text-center sm:px-10 sm:py-14 lg:py-16">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-navy-850" style={{ color: info.accent }}>
+            <ConditionIcon condition={session.condition} className="h-5 w-5" />
+          </span>
+          <h1 className="text-base font-semibold sm:text-lg" data-testid="break-title">
             {info.title}
           </h1>
+        </div>
 
-          {finished ? (
-            <div className="py-6" data-testid="break-finished">
-              <div className="mx-auto mt-6 grid h-20 w-20 place-items-center rounded-full bg-emerald-400/20 text-emerald-200">
-                <CheckIcon className="h-10 w-10" />
-              </div>
-              <p className="mt-6 text-3xl font-semibold">Break complete!</p>
-              <p className="mt-2 muted">Please return to your seat. The Corsi test is about to begin…</p>
-              <div className="mx-auto mt-6 h-1 w-40 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full animate-[grow_3.5s_linear_forwards] rounded-full bg-sky-200" style={{ width: 0 }} />
-              </div>
-              <style>{`@keyframes grow{to{width:100%}}`}</style>
+        {finished ? (
+          <div className="py-8" data-testid="break-finished">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
+              <CheckIcon className="h-8 w-8" />
             </div>
-          ) : (
-            <>
-              <p className="mt-8 text-sm muted">Time remaining</p>
-              <p
-                className="mt-1 font-semibold tabular-nums tracking-tight"
-                style={{ fontSize: 'clamp(4.5rem, 20vw, 9rem)', lineHeight: 1 }}
-                role="timer"
-                aria-live="off"
-                data-testid="timer">
-                {formatClock(secondsLeft)}
-              </p>
+            <p className="mt-5 text-2xl font-semibold sm:text-3xl">Break complete</p>
+            <p className="mt-2 text-ink-2">Please return to your seat. The Corsi test is about to begin…</p>
+            <div className="mx-auto mt-6 h-1 w-40 overflow-hidden rounded-full bg-navy-700">
+              <div className="h-full animate-[grow_3.5s_linear_forwards] rounded-full bg-accent" style={{ width: 0 }} />
+            </div>
+            <style>{`@keyframes grow{to{width:100%}}`}</style>
+          </div>
+        ) : (
+          <>
+            <p className="mt-8 text-sm text-ink-3 sm:mt-10">Time remaining</p>
+            <p
+              className="mt-1 font-semibold tabular-nums tracking-tight"
+              style={{ fontSize: 'clamp(4.25rem, 19vw, 11rem)', lineHeight: 1 }}
+              role="timer"
+              aria-live="off"
+              data-testid="timer">
+              {formatClock(secondsLeft)}
+            </p>
+            <div
+              className="mt-8 h-2 w-full max-w-lg overflow-hidden rounded-full bg-navy-700 sm:mt-10"
+              role="progressbar"
+              aria-label="Break time remaining"
+              aria-valuemin={0}
+              aria-valuemax={BREAK_SECONDS}
+              aria-valuenow={secondsLeft}>
               <div
-                className="mx-auto mt-8 h-3 w-full max-w-md overflow-hidden rounded-full bg-white/10"
-                role="progressbar"
-                aria-label="Break time remaining"
-                aria-valuemin={0}
-                aria-valuemax={BREAK_SECONDS}
-                aria-valuenow={secondsLeft}>
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-sky-300 to-white transition-[width] duration-300 ease-linear"
-                  style={{ width: `${fraction * 100}%` }}
-                  data-testid="progress"
-                />
-              </div>
-              <p className="mt-8 text-lg font-medium">{info.timerPrompt}</p>
-            </>
-          )}
-        </div>
-      </div>
+                className="h-full rounded-full bg-accent transition-[width] duration-300 ease-linear"
+                style={{ width: `${fraction * 100}%` }}
+                data-testid="progress"
+              />
+            </div>
+            <p className="mt-8 max-w-md text-base font-medium sm:text-lg">{info.timerPrompt}</p>
+          </>
+        )}
+      </section>
 
-      {error ? <div className="mt-4"><Alert>{error}</Alert></div> : null}
+      {/* Instructions */}
+      <aside className="flex flex-col gap-4">
+        {error ? <Alert>{error}</Alert> : null}
 
-      {session.is_test && !finished ? (
-        <div className="mt-6">
-          <TestModeBanner />
-          <button className="btn btn-glass mt-3 border-amber-300/40! text-amber-100" onClick={skip} disabled={skipping} data-testid="skip-break">
-            {skipping ? 'Skipping…' : 'Skip break (test mode only)'}
-          </button>
-        </div>
-      ) : null}
-
-      {!finished ? (
-        <div className="mt-6 space-y-3 text-sm muted">
-          <ul className="glass-soft mx-auto max-w-xl space-y-1.5 rounded-3xl p-5 text-left">
-            {info.instructions.map((t) => (
-              <li key={t} className="flex gap-2">
-                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-white/50" />
-                {t}
-              </li>
-            ))}
-            <li className="flex gap-2">
-              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-white/50" />
-              The timer cannot be paused, reset or skipped. Started {formatDateTime(session.break_started_at)}; ends{' '}
-              {formatDateTime(session.break_ends_at)}.
-            </li>
-          </ul>
-          {notifyState === 'default' ? (
+        {session.is_test && !finished ? (
+          <div className="rounded-2xl border border-amber-300/30 bg-amber-300/5 p-5">
+            <TestModeBanner />
             <button
-              className="btn btn-glass text-sm"
-              onClick={async () => setNotifyState(await Notification.requestPermission())}>
-              Notify me when the break ends
+              className="btn btn-glass mt-3 w-full border-amber-300/40! text-amber-100"
+              onClick={skip}
+              disabled={skipping}
+              data-testid="skip-break">
+              {skipping ? 'Skipping…' : 'Skip break (test mode only)'}
             </button>
-          ) : null}
-          <p>
-            If you close this page, the break keeps running.{' '}
-            <Link href="/dashboard" className="underline">Return to dashboard</Link>
-          </p>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+
+        {!finished ? (
+          <>
+            <div className="glass rounded-2xl p-5 sm:p-6">
+              <h2 className="font-semibold">During your break</h2>
+              <ul className="mt-3 space-y-2.5 text-sm text-ink-2">
+                {info.instructions.map((t) => (
+                  <li key={t} className="flex gap-2.5">
+                    <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ink-3" />
+                    {t}
+                  </li>
+                ))}
+                <li className="flex gap-2.5">
+                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ink-3" />
+                  The timer can&apos;t be paused, reset or skipped.
+                </li>
+              </ul>
+              <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 text-sm">
+                <div>
+                  <dt className="label">Started</dt>
+                  <dd className="mt-0.5 tabular-nums">{new Date(session.break_started_at).toLocaleTimeString()}</dd>
+                </div>
+                <div>
+                  <dt className="label">Ends</dt>
+                  <dd className="mt-0.5 tabular-nums">{new Date(session.break_ends_at).toLocaleTimeString()}</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="glass rounded-2xl p-5 text-sm text-ink-2 sm:p-6">
+              <p>If you close this page, the break keeps running. Come back any time from your dashboard.</p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row lg:flex-col">
+                {notifyState === 'default' ? (
+                  <button
+                    className="btn btn-glass flex-1"
+                    onClick={async () => setNotifyState(await Notification.requestPermission())}>
+                    Notify me when it ends
+                  </button>
+                ) : null}
+                <Link href="/dashboard" className="btn btn-glass flex-1">
+                  Back to dashboard
+                </Link>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </aside>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export default function LoginForm() {
 
   return (
     <Card className="fade-up">
-      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/10 text-sky-200">
+      <div className="grid h-12 w-12 place-items-center rounded-xl bg-accent/12 text-accent">
         <LockIcon className="h-6 w-6" />
       </div>
       <div className="mt-4">

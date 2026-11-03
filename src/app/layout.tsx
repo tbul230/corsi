@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import './globals.css';
 import { GridIcon } from '@/components/icons';
+import NavLinks from '@/components/NavLinks';
 
 export const metadata: Metadata = {
   title: {
@@ -13,48 +14,38 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#040a1a',
+  themeColor: '#060b18',
   width: 'device-width',
-  initialScale: 1
+  initialScale: 1,
+  viewportFit: 'cover'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <body className="flex min-h-dvh flex-col">
         <div className="ambient" aria-hidden />
-        <header className="sticky top-0 z-30 px-4 pt-3">
-          <nav className="glass mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-full px-4 py-2.5 sm:px-5">
-            <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-white/10 text-sky-200">
-                <GridIcon className="h-5 w-5" />
+        <header className="header-bar sticky top-0 z-30">
+          <nav className="mx-auto flex h-14 w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
+            <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
+              <span className="grid h-7 w-7 place-items-center rounded-md bg-accent/15 text-accent">
+                <GridIcon className="h-4.5 w-4.5" />
               </span>
-              <span className="hidden sm:inline">Corsi Experiment</span>
+              <span className="hidden text-[15px] min-[400px]:inline">Corsi Experiment</span>
             </Link>
-            <div className="flex items-center gap-1 text-sm">
-              <Link href="/methodology" className="rounded-full px-3 py-1.5 text-white/75 hover:bg-white/10 hover:text-white">
-                Method
-              </Link>
-              <Link href="/results" className="rounded-full px-3 py-1.5 text-white/75 hover:bg-white/10 hover:text-white">
-                Results
-              </Link>
-              <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-1.5 font-medium text-white hover:bg-white/15">
-                My progress
-              </Link>
-            </div>
+            <NavLinks />
           </nav>
         </header>
-        <main className="flex-1">{children}</main>
-        <footer className="px-4 pb-8 pt-12 text-center text-xs muted">
-          <p>
-            An experimental implementation of a Corsi-style block-tapping task for research purposes. Not a validated
-            clinical or diagnostic assessment.
-          </p>
-          <p className="mt-2">
-            <Link href="/methodology" className="underline-offset-2 hover:underline">Methodology</Link>
-            {' · '}
-            <Link href="/admin" className="underline-offset-2 hover:underline">Researcher login</Link>
-          </p>
+        <main className="flex flex-1 flex-col">{children}</main>
+        <footer className="border-t border-line">
+          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-2 px-4 py-6 text-xs text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
+            <p>An experimental Corsi-style block-tapping task for research. Not a clinical or diagnostic assessment.</p>
+            <p className="flex gap-4">
+              <Link href="/methodology" className="hover:text-ink">Methodology</Link>
+              <Link href="/results" className="hover:text-ink">Results</Link>
+              <Link href="/admin" className="hover:text-ink">Researcher login</Link>
+            </p>
+          </div>
         </footer>
       </body>
     </html>

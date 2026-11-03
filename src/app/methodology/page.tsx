@@ -1,14 +1,24 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Card, Container, Eyebrow } from '@/components/ui';
+import { Card, Container, PageHeader } from '@/components/ui';
 import { BREAK_SECONDS, CONDITIONS, CONDITION_INFO, CORSI_RULES, CORSI_TIMING } from '@/lib/constants';
 
 export const metadata: Metadata = { title: 'Methodology' };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+const SECTIONS = [
+  ['design', 'Research question & design'],
+  ['procedure', 'Procedure'],
+  ['parameters', 'Corsi task parameters'],
+  ['order', 'Order & practice effects'],
+  ['integrity', 'Integrity safeguards'],
+  ['limitations', 'Limitations']
+] as const;
+
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <Card className="space-y-3 text-[15px] leading-relaxed text-white/85">
-      <h2 className="text-xl font-semibold text-white">{title}</h2>
+    <Card className="scroll-mt-20 space-y-3 leading-relaxed text-ink-2" >
+      <span id={id} className="relative -top-20 block" aria-hidden />
+      <h2 className="text-xl font-semibold text-ink">{title}</h2>
       {children}
     </Card>
   );
@@ -16,17 +26,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function MethodologyPage() {
   return (
-    <Container className="max-w-3xl! space-y-5 pt-10">
-      <div className="fade-up">
-        <Eyebrow>Methodology</Eyebrow>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Experiment procedure</h1>
-        <p className="mt-3 muted">
-          This page documents exactly what every participant experiences, so the procedure is identical for everyone
-          and can be reported or replicated.
-        </p>
-      </div>
-
-      <Section title="Research question & design">
+    <Container className="py-8 sm:py-10 lg:py-12">
+      <PageHeader
+        eyebrow="Methodology"
+        title="Experiment procedure"
+        description="Exactly what every participant experiences, so the procedure is identical for everyone and can be reported or replicated."
+      />
+      <div className="mt-8 grid gap-10 lg:grid-cols-[220px_minmax(0,1fr)] xl:gap-16">
+        <nav className="hidden lg:block" aria-label="Sections">
+          <ul className="sticky top-24 space-y-1 border-l border-line text-sm">
+            {SECTIONS.map(([id, label]) => (
+              <li key={id}>
+                <a href={`#${id}`} className="-ml-px block border-l border-transparent py-1 pl-4 text-ink-2 hover:border-accent hover:text-ink">
+                  {label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="min-w-0 max-w-4xl space-y-5">
+      <Section id="design" title="Research question & design">
         <p>
           Does the type of 15-minute break taken immediately beforehand affect performance on a Corsi-style
           block-tapping task, a measure of visuospatial short-term memory span?
@@ -48,7 +67,7 @@ export default function MethodologyPage() {
         </p>
       </Section>
 
-      <Section title="Procedure (per condition)">
+      <Section id="procedure" title="Procedure (per condition)">
         <ol className="list-decimal space-y-1.5 pl-5">
           <li>Registration with real first and last name (first visit only) and three consent agreements.</li>
           <li>Selection of one of the remaining break conditions; standardised written instructions are shown.</li>
@@ -67,7 +86,7 @@ export default function MethodologyPage() {
         </ol>
       </Section>
 
-      <Section title="Corsi task parameters">
+      <Section id="parameters" title="Corsi task parameters">
         <ul className="list-disc space-y-1 pl-5">
           <li>{CORSI_RULES.blocks} identical blocks in a fixed 3 × 3 grid.</li>
           <li>
@@ -98,7 +117,7 @@ export default function MethodologyPage() {
         </p>
       </Section>
 
-      <Section title="Controlling order & practice effects">
+      <Section id="order" title="Controlling order & practice effects">
         <p>
           Repeating the Corsi task can improve scores through practice alone. To prevent this from being confounded
           with break type, each participant is assigned one of the six possible condition orders at registration,
@@ -109,7 +128,7 @@ export default function MethodologyPage() {
         </p>
       </Section>
 
-      <Section title="Integrity safeguards">
+      <Section id="integrity" title="Integrity safeguards">
         <ul className="list-disc space-y-1 pl-5">
           <li>A database UNIQUE constraint on (participant, break condition): a condition can never be repeated, from any tab, browser or direct API call.</li>
           <li>Only one condition can be in progress at a time.</li>
@@ -120,7 +139,7 @@ export default function MethodologyPage() {
         </ul>
       </Section>
 
-      <Section title="Limitations">
+      <Section id="limitations" title="Limitations">
         <p>
           This is an experimental, browser-based implementation of a Corsi-style task. It is <strong>not</strong> a
           validated clinical or neuropsychological assessment and must not be used for diagnosis. The classic Corsi
@@ -130,9 +149,11 @@ export default function MethodologyPage() {
         </p>
       </Section>
 
-      <div className="flex gap-3">
-        <Link href="/register" className="btn btn-primary">Take part</Link>
-        <Link href="/results" className="btn btn-glass">View results</Link>
+          <div className="flex gap-3">
+            <Link href="/register" className="btn btn-primary">Take part</Link>
+            <Link href="/results" className="btn btn-glass">View results</Link>
+          </div>
+        </div>
       </div>
     </Container>
   );

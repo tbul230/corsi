@@ -12,7 +12,7 @@ import { browserClient } from '@/lib/supabase/browser';
 import type { AdminData, AdminSession } from '@/lib/admin-data';
 import SignOutButton from './SignOutButton';
 
-type Tab = 'overview' | 'participants' | 'sessions' | 'integrity' | 'export';
+type Tab = 'overview' | 'participants' | 'sessions' | 'integrity' | 'export' | 'deletions';
 
 const STATUS_LABEL: Record<string, string> = {
   break_in_progress: 'Break in progress',
@@ -32,8 +32,59 @@ function Td({ children, right, mono }: { children: React.ReactNode; right?: bool
   );
 }
 
-export default function AdminDashboard({ data, email }: { data: AdminData; email: string }) {
+function useDeleter() {
   const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+  async function run(kind: 'participant' | 'session', id: string, label: string) {
+    const what =
+      kind === 'participant'
+        ? `Permanently delete ${label} and ALL of their attempts and trials?`
+        : `Permanently delete this attempt (${label}) and its trials? The participant will be able to do this condition again.`;
+    if (!confirm(`${what}\n\nThis cannot be undone. A copy is kept in the deletion log.`)) return false;
+    setBusy(id);
+    const { error } =
+      kind === 'participant'
+        ? await browserClient().rpc('admin_delete_participant', { p_participant: id })
+        : await browserClient().rpc('admin_delete_session', { p_session: id });
+    setBusy(null);
+    if (error) {
+      alert(`Delete failed: ${error.message}`);
+      return false;
+    }
+    router.refresh();
+    return true;
+  }
+  return { busy, run };
+}
+
+function DeleteButton({ onClick, busy, label = 'Delete', testId }: { onClick: () => void; busy: boolean; label?: string; testId?: string }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      data-testid={testId}
+      className="rounded-full border border-red-300/30 bg-red-400/10 px-3 py-1 text-xs font-medium text-red-100 hover:bg-red-400/20 disabled:opacity-50">
+      {busy ? 'Deleting…' : label}
+    </button>
+  );
+}
+
+export default function AdminDashboard({ data: allData, email }: { data: AdminData; email: string }) {
+  const router = useRouter();
+  const [includeTest, setIncludeTest] = useState(false);
+  const deleter = useDeleter();
+  const testRunCount = allData.participants.filter((p) => p.is_test).length;
+  const data = useMemo<AdminData>(() => {
+    if (includeTest) return allData;
+    const testSessions = new Set(allData.sessions.filter((s) => s.is_test).map((s) => s.id));
+    return {
+      ...allData,
+      participants: allData.participants.filter((p) => !p.is_test),
+      sessions: allData.sessions.filter((s) => !s.is_test),
+      trials: allData.trials.filter((t) => !testSessions.has(t.session_id)),
+      events: allData.events.filter((e) => !testSessions.has(e.session_id))
+    };
+  }, [allData, includeTest]);
   const [tab, setTab] = useState<Tab>('overview');
   const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
@@ -67,7 +118,8 @@ export default function AdminDashboard({ data, email }: { data: AdminData; email
     ['participants', `Participants (${participants.length})`],
     ['sessions', `Sessions (${sessions.length})`],
     ['integrity', `Unfinished & interruptions (${new Set([...unfinished, ...interrupted].map((s) => s.id)).size})`],
-    ['export', 'Export & account']
+    ['export', 'Export & account'],
+    ['deletions', `Deletion log (${data.deletions.length})`]
   ];
 
   return (
@@ -78,7 +130,17 @@ export default function AdminDashboard({ data, email }: { data: AdminData; email
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">Corsi experiment data</h1>
           <p className="text-sm muted">Signed in as {email}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="glass-soft flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeTest}
+              onChange={(e) => setIncludeTest(e.target.checked)}
+              className="h-4 w-4 accent-amber-300"
+              data-testid="include-test"
+            />
+            Show admin test runs ({testRunCount})
+          </label>
           <button
             className="btn btn-glass text-sm"
             disabled={refreshing}
@@ -92,6 +154,10 @@ export default function AdminDashboard({ data, email }: { data: AdminData; email
           <SignOutButton />
         </div>
       </div>
+
+      {includeTest ? (
+        <Alert tone="info">Admin test runs are included in the tables and charts below. Turn this off for real study data.</Alert>
+      ) : null}
 
       <div className="glass-soft flex gap-1 overflow-x-auto rounded-full p-1 text-sm" role="tablist">
         {tabs.map(([key, label]) => (
@@ -144,6 +210,7 @@ export default function AdminDashboard({ data, email }: { data: AdminData; email
           <ParticipantDetail
             pid={selectedParticipant}
             data={data}
+            deleter={deleter}
             onBack={() => {
               setSelectedParticipant(null);
               setSelectedSession(null);
@@ -174,7 +241,10 @@ export default function AdminDashboard({ data, email }: { data: AdminData; email
                     const ps = sessions.filter((s) => s.participant_id === p.id);
                     return (
                       <tr key={p.id} className="hover:bg-white/5">
-                        <Td>{p.first_name} {p.last_name}</Td>
+                        <Td>
+                          {p.first_name} {p.last_name}
+                          {p.is_test ? <span className="ml-2 rounded-full bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-100">Test</span> : null}
+                        </Td>
                         <Td>{formatDateTime(p.created_at)}</Td>
                         <Td mono>{p.access_code}</Td>
                         {CONDITIONS.map((c) => {
@@ -187,9 +257,16 @@ export default function AdminDashboard({ data, email }: { data: AdminData; email
                         })}
                         <Td>{ps.filter((s) => s.status === 'completed').length}/3</Td>
                         <Td>
-                          <button className="text-sky-200 hover:underline" onClick={() => setSelectedParticipant(p.id)}>
-                            View
-                          </button>
+                          <span className="flex items-center gap-3">
+                            <button className="text-sky-200 hover:underline" onClick={() => setSelectedParticipant(p.id)}>
+                              View
+                            </button>
+                            <DeleteButton
+                              busy={deleter.busy === p.id}
+                              testId={`delete-participant-${p.id}`}
+                              onClick={() => void deleter.run('participant', p.id, `${p.first_name} ${p.last_name}`)}
+                            />
+                          </span>
                         </Td>
                       </tr>
                     );
@@ -253,6 +330,30 @@ export default function AdminDashboard({ data, email }: { data: AdminData; email
 
       {tab === 'export' ? <ExportPanel /> : null}
 
+      {tab === 'deletions' ? (
+        <div className="glass overflow-x-auto rounded-[28px] p-3">
+          {data.deletions.length === 0 ? (
+            <p className="p-6 text-center muted">Nothing has been deleted.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase tracking-wider muted">
+                <tr><Th>When</Th><Th>Type</Th><Th>What</Th><Th>By</Th></tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {[...data.deletions].reverse().map((d) => (
+                  <tr key={d.id}>
+                    <Td>{formatDateTime(d.deleted_at)}</Td>
+                    <Td>{d.kind === 'participant' ? 'Participant' : 'Attempt'}</Td>
+                    <Td>{d.summary}</Td>
+                    <Td>{d.deleted_by_email ?? '—'}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : null}
+
       <p className="text-xs muted">
         {trials.length} trial records · {events.length} break events loaded. Completed results are read-only — the
         database rejects edits and deletions.
@@ -306,12 +407,14 @@ function SessionTable({
 function ParticipantDetail({
   pid,
   data,
+  deleter,
   onBack,
   selectedSession,
   onSelectSession
 }: {
   pid: string;
   data: AdminData;
+  deleter: ReturnType<typeof useDeleter>;
   onBack: () => void;
   selectedSession: string | null;
   onSelectSession: (id: string | null) => void;
@@ -327,7 +430,19 @@ function ParticipantDetail({
     <div className="space-y-5">
       <button className="text-sm text-sky-200 hover:underline" onClick={onBack}>← All participants</button>
       <div className="glass rounded-[28px] p-6">
-        <h2 className="text-2xl font-semibold">{p.first_name} {p.last_name}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-2xl font-semibold">
+            {p.first_name} {p.last_name}
+            {p.is_test ? <span className="ml-2 align-middle rounded-full bg-amber-300/15 px-2 py-0.5 text-xs font-semibold uppercase text-amber-100">Test run</span> : null}
+          </h2>
+          <DeleteButton
+            label="Delete participant & all attempts"
+            busy={deleter.busy === p.id}
+            onClick={async () => {
+              if (await deleter.run('participant', p.id, `${p.first_name} ${p.last_name}`)) onBack();
+            }}
+          />
+        </div>
         <div className="mt-2 grid gap-1 text-sm muted sm:grid-cols-2">
           <p>Registered: {formatDateTime(p.created_at)}</p>
           <p>Consent (all three): {p.consent_participation && p.consent_quiet_environment && p.consent_guidelines ? 'Yes' : 'No'} · {formatDateTime(p.consented_at)}</p>
@@ -359,7 +474,18 @@ function ParticipantDetail({
       {sel ? (
         <div className="space-y-4">
           <div className="glass rounded-[28px] p-6">
-            <h3 className="font-semibold">{CONDITION_INFO[sel.condition].title} — exact timestamps</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="font-semibold">{CONDITION_INFO[sel.condition].title} — exact timestamps</h3>
+              <DeleteButton
+                label="Delete this attempt"
+                busy={deleter.busy === sel.id}
+                testId="delete-session"
+                onClick={async () => {
+                  if (await deleter.run('session', sel.id, `${p.first_name} ${p.last_name} · ${CONDITION_INFO[sel.condition].short}`))
+                    onSelectSession(null);
+                }}
+              />
+            </div>
             <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
               {[
                 ['Status', STATUS_LABEL[sel.status]],
@@ -372,6 +498,7 @@ function ParticipantDetail({
                 ['Test completed', formatDateTime(sel.test_completed_at)],
                 ['Test duration', formatDuration(sel.test_duration_seconds)],
                 ['Break interruptions', sel.break_interruptions],
+                ['Break skipped (test mode)', sel.break_skipped ? 'Yes' : 'No'],
                 ['Test interruptions', sel.test_interruptions],
                 ['Span / total score', `${sel.corsi_span ?? '—'} / ${sel.total_score ?? '—'}`],
                 ['Correct / incorrect / attempts', `${sel.correct_trials ?? '—'} / ${sel.incorrect_trials ?? '—'} / ${sel.total_attempts ?? '—'}`],
@@ -425,6 +552,7 @@ function ParticipantDetail({
 }
 
 function ExportPanel() {
+  const [withTest, setWithTest] = useState(false);
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [msg, setMsg] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
@@ -451,9 +579,13 @@ function ExportPanel() {
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="glass rounded-[28px] p-6">
         <h2 className="text-lg font-semibold">Export CSV</h2>
+        <label className="mt-2 flex items-center gap-2 text-sm muted">
+          <input type="checkbox" checked={withTest} onChange={(e) => setWithTest(e.target.checked)} className="h-4 w-4 accent-amber-300" />
+          Include admin test runs (marked with is_test = true)
+        </label>
         <div className="mt-4 space-y-3">
           {exports.map(([type, label, desc]) => (
-            <a key={type} href={`/api/admin/export?type=${type}`} className="glass-soft flex items-center justify-between gap-3 rounded-2xl p-4 hover:bg-white/10" download>
+            <a key={type} href={`/api/admin/export?type=${type}${withTest ? '&include_test=1' : ''}`} className="glass-soft flex items-center justify-between gap-3 rounded-2xl p-4 hover:bg-white/10" download>
               <span>
                 <span className="block font-medium">{label}.csv</span>
                 <span className="block text-xs muted">{desc}</span>

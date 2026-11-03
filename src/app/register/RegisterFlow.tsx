@@ -290,6 +290,12 @@ export default function RegisterFlow() {
           </div>
         </form>
       </Card>
+      <p className="text-center text-xs muted">
+        Researcher?{' '}
+        <a href="/test-mode" className="underline underline-offset-2 hover:text-white">
+          Admin test mode
+        </a>
+      </p>
     </div>
   );
 }

@@ -20,6 +20,10 @@ export const ERROR_MESSAGES: Record<string, { status: number; message: string }>
   NO_PENDING_TRIAL: { status: 409, message: 'There is no trial waiting for a response.' },
   INVALID_RESPONSE: { status: 400, message: 'Invalid response.' },
   INVALID_EVENT: { status: 400, message: 'Invalid event.' },
+  INVALID_ADMIN_CODE: { status: 401, message: 'That admin code is not correct.' },
+  TEST_MODE_ONLY: { status: 403, message: 'This action is only available in admin test mode.' },
+  ADMIN_ONLY: { status: 403, message: 'Administrator access required.' },
+  PARTICIPANT_NOT_FOUND: { status: 404, message: 'Participant not found.' },
   RESULTS_LOCKED: { status: 409, message: 'Submitted results cannot be changed.' }
 };
 

@@ -86,6 +86,30 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ action: st
         return NextResponse.json(state);
       }
 
+      case 'test-mode': {
+        const code = typeof body.code === 'string' && body.code.length <= 200 ? body.code : null;
+        if (!code) return bad('Admin code is required.');
+        const result = await callRpc<{ token: string }>('start_test_mode', { p_code: code });
+        const { token, ...state } = result;
+        await setParticipantToken(token);
+        return NextResponse.json(state);
+      }
+
+      case 'skip-break': {
+        const token = await requireToken();
+        if (typeof body.sessionId !== 'string' || !UUID.test(body.sessionId)) return bad('Invalid session.');
+        return NextResponse.json(await callRpc('skip_break', { p_token: token, p_session: body.sessionId }));
+      }
+
+      case 'reset-condition': {
+        const token = await requireToken();
+        const condition = body.condition as Condition;
+        if (!CONDITIONS.includes(condition)) return bad('Unknown break condition.');
+        return NextResponse.json(
+          await callRpc('reset_test_condition', { p_token: token, p_condition: condition })
+        );
+      }
+
       case 'logout': {
         const token = await getParticipantToken();
         if (token) await callRpc('logout_participant', { p_token: token }).catch(() => undefined);

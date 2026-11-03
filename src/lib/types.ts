@@ -7,6 +7,8 @@ export interface SessionSummary {
   condition: Condition;
   condition_order: number;
   status: SessionStatus;
+  is_test: boolean;
+  break_skipped: boolean;
   expected_break_seconds: number;
   break_started_at: string;
   break_ends_at: string;
@@ -32,6 +34,7 @@ export interface ParticipantInfo {
   last_name: string;
   access_code: string;
   assigned_order: Condition[];
+  is_test: boolean;
   experiment_completed: boolean;
   experiment_completed_at: string | null;
   created_at: string;
@@ -63,7 +66,7 @@ export interface TrialRecord {
 export interface SessionDetail {
   session: SessionSummary;
   trials: TrialRecord[] | null;
-  participant: { first_name: string; last_name: string };
+  participant: { first_name: string; last_name: string; is_test: boolean };
   server_now: string;
 }
 

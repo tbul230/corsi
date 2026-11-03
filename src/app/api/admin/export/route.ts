@@ -17,16 +17,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unknown export type.' }, { status: 400 });
   }
 
-  const { participants, sessions, trials, events } = await loadAdminData(supabase);
+  const includeTest = req.nextUrl.searchParams.get('include_test') === '1';
+  const all = await loadAdminData(supabase);
+  const testSessionIds = new Set(all.sessions.filter((s) => s.is_test).map((s) => s.id));
+  // Admin test-mode runs are excluded from exports unless explicitly requested.
+  const participants = includeTest ? all.participants : all.participants.filter((p) => !p.is_test);
+  const sessions = includeTest ? all.sessions : all.sessions.filter((s) => !s.is_test);
+  const trials = includeTest ? all.trials : all.trials.filter((t) => !testSessionIds.has(t.session_id));
+  const events = includeTest ? all.events : all.events.filter((e) => !testSessionIds.has(e.session_id));
   const pById = new Map(participants.map((p) => [p.id, p]));
   const sById = new Map(sessions.map((s) => [s.id, s]));
   let csv: string;
 
   if (type === 'participants') {
     csv = toCsv(
-      ['participant_id', 'first_name', 'last_name', 'created_at', 'consent_participation', 'consent_quiet_environment', 'consent_guidelines', 'consented_at', 'assigned_order', 'conditions_completed', 'experiment_completed', 'experiment_completed_at'],
+      ['participant_id', 'first_name', 'last_name', 'is_test', 'created_at', 'consent_participation', 'consent_quiet_environment', 'consent_guidelines', 'consented_at', 'assigned_order', 'conditions_completed', 'experiment_completed', 'experiment_completed_at'],
       participants.map((p) => [
-        p.id, p.first_name, p.last_name, p.created_at, p.consent_participation, p.consent_quiet_environment, p.consent_guidelines, p.consented_at,
+        p.id, p.first_name, p.last_name, p.is_test, p.created_at, p.consent_participation, p.consent_quiet_environment, p.consent_guidelines, p.consented_at,
         p.assigned_order.join(' > '),
         sessions.filter((s) => s.participant_id === p.id && s.status === 'completed').length,
         p.experiment_completed, p.experiment_completed_at
@@ -34,10 +41,10 @@ export async function GET(req: NextRequest) {
     );
   } else if (type === 'sessions') {
     csv = toCsv(
-      ['session_id', 'participant_id', 'first_name', 'last_name', 'condition', 'condition_order', 'status', 'expected_break_seconds', 'break_started_at', 'break_ends_at', 'break_completed_at', 'actual_break_seconds', 'break_interruptions', 'test_started_at', 'test_completed_at', 'test_duration_seconds', 'test_interruptions', 'corsi_span', 'max_length_correct', 'total_score', 'correct_trials', 'incorrect_trials', 'total_attempts', 'accuracy_pct'],
+      ['session_id', 'participant_id', 'first_name', 'last_name', 'is_test', 'condition', 'condition_order', 'status', 'break_skipped', 'expected_break_seconds', 'break_started_at', 'break_ends_at', 'break_completed_at', 'actual_break_seconds', 'break_interruptions', 'test_started_at', 'test_completed_at', 'test_duration_seconds', 'test_interruptions', 'corsi_span', 'max_length_correct', 'total_score', 'correct_trials', 'incorrect_trials', 'total_attempts', 'accuracy_pct'],
       sessions.map((s) => {
         const p = pById.get(s.participant_id);
-        return [s.id, s.participant_id, p?.first_name, p?.last_name, s.condition, s.condition_order, s.status, s.expected_break_seconds, s.break_started_at, s.break_ends_at, s.break_completed_at, s.actual_break_seconds, s.break_interruptions, s.test_started_at, s.test_completed_at, s.test_duration_seconds, s.test_interruptions, s.corsi_span, s.max_length_correct, s.total_score, s.correct_trials, s.incorrect_trials, s.total_attempts, s.accuracy];
+        return [s.id, s.participant_id, p?.first_name, p?.last_name, s.is_test, s.condition, s.condition_order, s.status, s.break_skipped, s.expected_break_seconds, s.break_started_at, s.break_ends_at, s.break_completed_at, s.actual_break_seconds, s.break_interruptions, s.test_started_at, s.test_completed_at, s.test_duration_seconds, s.test_interruptions, s.corsi_span, s.max_length_correct, s.total_score, s.correct_trials, s.incorrect_trials, s.total_attempts, s.accuracy];
       })
     );
   } else if (type === 'trials') {

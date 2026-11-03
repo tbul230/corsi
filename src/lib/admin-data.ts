@@ -11,6 +11,7 @@ export interface AdminParticipant {
   consent_guidelines: boolean;
   consented_at: string;
   assigned_order: string[];
+  is_test: boolean;
   experiment_completed: boolean;
   experiment_completed_at: string | null;
   created_at: string;
@@ -22,6 +23,8 @@ export interface AdminSession {
   condition: 'video_game' | 'youtube' | 'no_screen';
   condition_order: number;
   status: string;
+  is_test: boolean;
+  break_skipped: boolean;
   expected_break_seconds: number;
   break_started_at: string;
   break_ends_at: string;
@@ -56,6 +59,14 @@ export interface AdminTrial {
   responded_at: string;
 }
 
+export interface DeletionLogEntry {
+  id: number;
+  deleted_at: string;
+  deleted_by_email: string | null;
+  kind: 'participant' | 'session';
+  summary: string | null;
+}
+
 export interface AdminBreakEvent {
   id: number;
   session_id: string;
@@ -65,7 +76,7 @@ export interface AdminBreakEvent {
 }
 
 const SESSION_COLS =
-  'id,participant_id,condition,condition_order,status,expected_break_seconds,break_started_at,break_ends_at,break_completed_at,actual_break_seconds,break_interruptions,test_started_at,test_completed_at,test_duration_seconds,test_interruptions,corsi_span,max_length_correct,total_score,correct_trials,incorrect_trials,total_attempts,accuracy,created_at';
+  'id,participant_id,condition,condition_order,status,is_test,break_skipped,expected_break_seconds,break_started_at,break_ends_at,break_completed_at,actual_break_seconds,break_interruptions,test_started_at,test_completed_at,test_duration_seconds,test_interruptions,corsi_span,max_length_correct,total_score,correct_trials,incorrect_trials,total_attempts,accuracy,created_at';
 
 /** Reads everything with the admin's own JWT — RLS only returns rows if the user is in public.admins. */
 async function fetchAll<T>(supabase: SupabaseClient, table: string, cols: string, order: string) {
@@ -81,13 +92,14 @@ async function fetchAll<T>(supabase: SupabaseClient, table: string, cols: string
 }
 
 export async function loadAdminData(supabase: SupabaseClient) {
-  const [participants, sessions, trials, events] = await Promise.all([
-    fetchAll<AdminParticipant>(supabase, 'participants', 'id,first_name,last_name,access_code,consent_participation,consent_quiet_environment,consent_guidelines,consented_at,assigned_order,experiment_completed,experiment_completed_at,created_at', 'created_at'),
+  const [participants, sessions, trials, events, deletions] = await Promise.all([
+    fetchAll<AdminParticipant>(supabase, 'participants', 'id,first_name,last_name,access_code,consent_participation,consent_quiet_environment,consent_guidelines,consented_at,assigned_order,is_test,experiment_completed,experiment_completed_at,created_at', 'created_at'),
     fetchAll<AdminSession>(supabase, 'experiment_sessions', SESSION_COLS, 'created_at'),
     fetchAll<AdminTrial>(supabase, 'trial_results', 'id,session_id,trial_number,sequence_length,attempt_at_length,sequence,response,is_correct,response_time_ms,presented_at,responded_at', 'responded_at'),
-    fetchAll<AdminBreakEvent>(supabase, 'break_events', 'id,session_id,event_type,client_remaining_seconds,occurred_at', 'id')
+    fetchAll<AdminBreakEvent>(supabase, 'break_events', 'id,session_id,event_type,client_remaining_seconds,occurred_at', 'id'),
+    fetchAll<DeletionLogEntry>(supabase, 'deletion_log', 'id,deleted_at,deleted_by_email,kind,summary', 'id')
   ]);
-  return { participants, sessions, trials, events };
+  return { participants, sessions, trials, events, deletions };
 }
 
 export type AdminData = Awaited<ReturnType<typeof loadAdminData>>;

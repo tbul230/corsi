@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Alert } from '@/components/ui';
+import TestModeBanner from '@/components/TestModeBanner';
 import { CheckIcon, ConditionIcon } from '@/components/icons';
 import { api, ApiError } from '@/lib/api';
 import { BREAK_SECONDS, CONDITION_INFO } from '@/lib/constants';
@@ -91,6 +92,20 @@ export default function BreakTimer({
   useEffect(() => {
     setNotifyState(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
   }, []);
+
+  const [skipping, setSkipping] = useState(false);
+  async function skip() {
+    setSkipping(true);
+    try {
+      completingRef.current = true;
+      const res = await api<{ session: SessionSummary }>('skip-break', { sessionId: session.id });
+      onComplete(res.session);
+    } catch (err) {
+      completingRef.current = false;
+      setError(err instanceof ApiError ? err.message : 'Could not skip the break.');
+      setSkipping(false);
+    }
+  }
 
   const complete = useCallback(async () => {
     if (completingRef.current) return;
@@ -212,6 +227,15 @@ export default function BreakTimer({
       </div>
 
       {error ? <div className="mt-4"><Alert>{error}</Alert></div> : null}
+
+      {session.is_test && !finished ? (
+        <div className="mt-6">
+          <TestModeBanner />
+          <button className="btn btn-glass mt-3 border-amber-300/40! text-amber-100" onClick={skip} disabled={skipping} data-testid="skip-break">
+            {skipping ? 'Skipping…' : 'Skip break (test mode only)'}
+          </button>
+        </div>
+      ) : null}
 
       {!finished ? (
         <div className="mt-6 space-y-3 text-sm muted">

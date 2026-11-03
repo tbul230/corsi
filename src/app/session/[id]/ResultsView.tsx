@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { Stat } from '@/components/ui';
+import RedoButton from '@/components/RedoButton';
+import TestModeBanner from '@/components/TestModeBanner';
 import { ArrowIcon, CheckIcon, ConditionIcon } from '@/components/icons';
 import { CONDITION_INFO } from '@/lib/constants';
 import { formatDateTime, formatDuration, formatPct } from '@/lib/format';
@@ -13,6 +15,7 @@ export default function ResultsView({ detail }: { detail: SessionDetail }) {
 
   return (
     <div className="fade-up" data-testid="results">
+      {participant.is_test ? <TestModeBanner className="mb-4" /> : null}
       <div className="glass relative overflow-hidden rounded-[36px] p-7 sm:p-10">
         <div
           aria-hidden
@@ -22,7 +25,7 @@ export default function ResultsView({ detail }: { detail: SessionDetail }) {
         <div className="relative flex flex-wrap items-start justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-100">
-              <CheckIcon className="h-3.5 w-3.5" /> Saved to the study database
+              <CheckIcon className="h-3.5 w-3.5" /> {participant.is_test ? 'Saved as a test run (not counted)' : 'Saved to the study database'}
             </div>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
               {participant.first_name} {participant.last_name}
@@ -100,7 +103,13 @@ export default function ResultsView({ detail }: { detail: SessionDetail }) {
           See experiment results
         </Link>
       </div>
-      <p className="mt-4 text-sm muted">This condition is complete and locked — it cannot be repeated or changed.</p>
+      {participant.is_test ? (
+        <div className="mt-4 flex items-center gap-3 text-sm muted">
+          Test run — <RedoButton condition={s.condition} label="Redo this condition" />
+        </div>
+      ) : (
+        <p className="mt-4 text-sm muted">This condition is complete and locked — it cannot be repeated or changed.</p>
+      )}
     </div>
   );
 }

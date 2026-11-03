@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { Alert, Card, Container, Eyebrow, StatusPill } from '@/components/ui';
 import { ArrowIcon, ConditionIcon } from '@/components/icons';
 import LogoutButton from '@/components/LogoutButton';
+import RedoButton from '@/components/RedoButton';
+import TestModeBanner from '@/components/TestModeBanner';
 import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
 import { formatDateTime, formatPct } from '@/lib/format';
 import { loadParticipantState } from '@/lib/participant-server';
@@ -19,6 +21,7 @@ export default async function DashboardPage() {
   const { participant } = state;
   const { byCondition, completed, active, recommended } = progressOf(state);
   const done = participant.experiment_completed;
+  const isTest = participant.is_test;
 
   return (
     <Container className="max-w-4xl! pt-10">
@@ -37,6 +40,8 @@ export default async function DashboardPage() {
         </div>
         <LogoutButton />
       </div>
+
+      {isTest ? <TestModeBanner className="fade-up mt-5" /> : null}
 
       <Card className="fade-up mt-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -64,6 +69,7 @@ export default async function DashboardPage() {
                 <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 text-right font-medium">Corsi span</th>
                 <th className="pb-3 text-right font-medium">Accuracy</th>
+                {isTest ? <th className="pb-3 text-right font-medium">Test</th> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
@@ -94,6 +100,9 @@ export default async function DashboardPage() {
                     <td className="py-3.5 text-right tabular-nums">
                       {status === 'completed' ? formatPct(s!.accuracy, 0) : '--'}
                     </td>
+                    {isTest ? (
+                      <td className="py-3.5 text-right">{s ? <RedoButton condition={c} /> : null}</td>
+                    ) : null}
                   </tr>
                 );
               })}

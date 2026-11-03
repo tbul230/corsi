@@ -114,6 +114,7 @@ export default function MethodologyPage() {
           <li>A database UNIQUE constraint on (participant, break condition): a condition can never be repeated, from any tab, browser or direct API call.</li>
           <li>Only one condition can be in progress at a time.</li>
           <li>Completed sessions and trial records are write-protected by database triggers — results cannot be edited or deleted.</li>
+          <li>Researchers can try the procedure in a separate admin test mode (break can be skipped, conditions redone). Those runs are flagged as tests and excluded from every result, chart and export.</li>
           <li>Timestamps are recorded for registration, consent, break start, break end, break completion, test start, every trial and test completion.</li>
           <li>Leaving the break page (closing/refreshing the tab) is logged as an interruption; switching to other apps or tabs is logged separately. If a test is interrupted mid-trial, the unanswered sequence is discarded, logged, and a new sequence of the same length is shown.</li>
         </ul>

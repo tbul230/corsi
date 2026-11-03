@@ -46,10 +46,23 @@ Every participant completes each condition **exactly once**, in any (counterbala
 | `/results` | Public, anonymised live charts (auto-refresh every 10 s) |
 | `/methodology` | Full procedure for reporting/replication |
 | `/admin` | Researcher dashboard (Supabase Auth, admins only) |
+| `/test-mode` | Admin test mode (admin code; results not counted) |
 
 Charts: average span by break type (with *n*), individual participant comparison (grouped bars), accuracy comparison, overall stats, and a practice-effect check (span by completion order). Missing conditions are never plotted as zero. Filters for condition and participant, plus a table view.
 
 Admin dashboard: all participants, per-participant detail with exact break/test timestamps, trial-by-trial data, completion statistics, unfinished sessions, interrupted breaks, and CSV export (sessions, trials, participants, break events).
+
+## Admin tools
+
+**Test mode** (`/test-mode`, linked from the registration page): researchers enter the admin code to get a throw-away "Admin Test ###" participant without registering. In test mode the break timer has a **Skip break** button and every condition can be **redone**. Test runs are flagged `is_test` and are excluded from the public results, charts, admin statistics and CSV exports (admins can show them with a toggle). Only a bcrypt hash of the admin code is stored, in `public.app_secrets`. To set or change it, run this in the Supabase SQL editor:
+
+```sql
+insert into public.app_secrets (key, value_hash)
+values ('admin_test_code', extensions.crypt('NEW-CODE', extensions.gen_salt('bf')))
+on conflict (key) do update set value_hash = excluded.value_hash, updated_at = now();
+```
+
+**Deleting data**: signed-in admins can delete a whole participant (with all attempts and trials) or a single attempt from the admin dashboard. Deletions run through `admin_delete_participant` / `admin_delete_session`, which check admin rights in the database. Each deletion is written to the deletion log with a full JSON copy of what was removed. Nobody else can delete or edit results.
 
 ## Architecture & data integrity
 
@@ -61,7 +74,7 @@ Admin dashboard: all participants, per-participant detail with exact break/test 
   - only one condition in progress at a time
   - break end = start + 15 min (CHECK constraint); `next_trial` refuses to run before it
   - sequences, correctness and all scores are computed server-side
-  - triggers make completed sessions and trial rows immutable (no edits, no deletes)
+  - triggers make completed sessions and trial rows immutable (no edits; deletes only through the audited admin functions)
 - **Admins** sign in with Supabase Auth; Row Level Security only lets users listed in `public.admins` read data. No service-role key is used anywhere.
 
 ## Local development

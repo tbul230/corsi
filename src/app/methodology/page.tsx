@@ -1,0 +1,138 @@
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { Card, Container, Eyebrow } from '@/components/ui';
+import { BREAK_SECONDS, CONDITIONS, CONDITION_INFO, CORSI_RULES, CORSI_TIMING } from '@/lib/constants';
+
+export const metadata: Metadata = { title: 'Methodology' };
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="space-y-3 text-[15px] leading-relaxed text-white/85">
+      <h2 className="text-xl font-semibold text-white">{title}</h2>
+      {children}
+    </Card>
+  );
+}
+
+export default function MethodologyPage() {
+  return (
+    <Container className="max-w-3xl! space-y-5 pt-10">
+      <div className="fade-up">
+        <Eyebrow>Methodology</Eyebrow>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Experiment procedure</h1>
+        <p className="mt-3 muted">
+          This page documents exactly what every participant experiences, so the procedure is identical for everyone
+          and can be reported or replicated.
+        </p>
+      </div>
+
+      <Section title="Research question & design">
+        <p>
+          Does the type of 15-minute break taken immediately beforehand affect performance on a Corsi-style
+          block-tapping task, a measure of visuospatial short-term memory span?
+        </p>
+        <p>
+          <strong>Design:</strong> within-subjects, one independent variable with three levels (break type). Every
+          participant completes all three conditions exactly once:
+        </p>
+        <ul className="list-disc space-y-1 pl-5">
+          {CONDITIONS.map((c) => (
+            <li key={c}>
+              <strong>{CONDITION_INFO[c].title}</strong> — {CONDITION_INFO[c].description}
+            </li>
+          ))}
+        </ul>
+        <p>
+          <strong>Primary dependent variable:</strong> Corsi span (longest sequence length reproduced correctly).
+          Secondary: accuracy (% correct trials), total score (span × correct trials), per-trial response times.
+        </p>
+      </Section>
+
+      <Section title="Procedure (per condition)">
+        <ol className="list-decimal space-y-1.5 pl-5">
+          <li>Registration with real first and last name (first visit only) and three consent agreements.</li>
+          <li>Selection of one of the remaining break conditions; standardised written instructions are shown.</li>
+          <li>
+            A {BREAK_SECONDS / 60}-minute break. The start and end times are fixed by the server when the break begins;
+            the countdown is computed from those timestamps, so it is accurate after refreshing, switching tabs or
+            closing the browser, and it cannot be paused, reset, shortened or skipped. The database rejects any attempt
+            to start the test before the break has ended.
+          </li>
+          <li>
+            When the timer reaches zero the break-completion time is recorded and the participant is moved
+            automatically to the Corsi test screen; the test-start time is recorded when the first sequence is shown.
+          </li>
+          <li>Corsi block-tapping test (below), then an immediate summary of results.</li>
+          <li>Results are saved and locked. The participant returns to their dashboard.</li>
+        </ol>
+      </Section>
+
+      <Section title="Corsi task parameters">
+        <ul className="list-disc space-y-1 pl-5">
+          <li>{CORSI_RULES.blocks} identical blocks in a fixed 3 × 3 grid.</li>
+          <li>
+            Each block lights for {CORSI_TIMING.blockOnMs} ms with a {CORSI_TIMING.interBlockMs} ms dark interval
+            between blocks; sequences begin {CORSI_TIMING.preSequenceMs} ms after the “Watch” cue.
+          </li>
+          <li>
+            Sequences are generated randomly <em>on the server</em> with no block repeated within a sequence (so no
+            immediate repeats). The participant never sees the next sequence in advance.
+          </li>
+          <li>
+            Sequence length starts at {CORSI_RULES.startLength}. A correct reproduction increases the length by one
+            (maximum {CORSI_RULES.maxLength}). An incorrect reproduction gives one more attempt at the same length with
+            a new sequence.
+          </li>
+          <li>
+            <strong>Stopping rule:</strong> the test ends after {CORSI_RULES.attemptsPerLength} failed attempts at the
+            same length, or after a correct reproduction at length {CORSI_RULES.maxLength}.
+          </li>
+          <li>A response is complete once the participant has tapped as many blocks as were shown; it is scored correct only if every block is in the right order.</li>
+          <li>Feedback (“Correct” / “Incorrect”) is shown for {CORSI_TIMING.feedbackMs} ms after each trial.</li>
+          <li>Response time is measured from the end of the sequence to the final tap.</li>
+        </ul>
+        <p>
+          <strong>Scoring:</strong> Corsi span = the longest sequence length reproduced correctly (0 if none). Total
+          score = span × number of correct trials. Accuracy = correct trials ÷ total trials. All scores are computed by
+          the database from the stored trial records, not by the browser.
+        </p>
+      </Section>
+
+      <Section title="Controlling order & practice effects">
+        <p>
+          Repeating the Corsi task can improve scores through practice alone. To prevent this from being confounded
+          with break type, each participant is assigned one of the six possible condition orders at registration,
+          choosing the order used least so far (counterbalancing). This order is suggested on the dashboard, though
+          participants may choose any remaining condition. The actual order of completion is recorded for every
+          session and the results page includes a “span by completion order” chart so practice effects can be
+          inspected. Where possible, complete the three conditions at similar times of day, ideally on separate days.
+        </p>
+      </Section>
+
+      <Section title="Integrity safeguards">
+        <ul className="list-disc space-y-1 pl-5">
+          <li>A database UNIQUE constraint on (participant, break condition): a condition can never be repeated, from any tab, browser or direct API call.</li>
+          <li>Only one condition can be in progress at a time.</li>
+          <li>Completed sessions and trial records are write-protected by database triggers — results cannot be edited or deleted.</li>
+          <li>Timestamps are recorded for registration, consent, break start, break end, break completion, test start, every trial and test completion.</li>
+          <li>Leaving the break page (closing/refreshing the tab) is logged as an interruption; switching to other apps or tabs is logged separately. If a test is interrupted mid-trial, the unanswered sequence is discarded, logged, and a new sequence of the same length is shown.</li>
+        </ul>
+      </Section>
+
+      <Section title="Limitations">
+        <p>
+          This is an experimental, browser-based implementation of a Corsi-style task. It is <strong>not</strong> a
+          validated clinical or neuropsychological assessment and must not be used for diagnosis. The classic Corsi
+          board uses an irregular block layout; this version uses a regular 3 × 3 grid. Break activities are
+          self-reported and cannot be verified, and screen size, input device and environment vary between
+          participants.
+        </p>
+      </Section>
+
+      <div className="flex gap-3">
+        <Link href="/register" className="btn btn-primary">Take part</Link>
+        <Link href="/results" className="btn btn-glass">View results</Link>
+      </div>
+    </Container>
+  );
+}

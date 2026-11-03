@@ -1,0 +1,475 @@
+'use client';
+
+import { useMemo, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import ResultsCharts from '@/components/ResultsCharts';
+import { Alert, Eyebrow, Stat, StatusPill } from '@/components/ui';
+import { ConditionIcon } from '@/components/icons';
+import { CONDITIONS, CONDITION_INFO, type Condition } from '@/lib/constants';
+import { formatDateTime, formatDuration, formatPct } from '@/lib/format';
+import type { ResultRow } from '@/lib/stats';
+import { browserClient } from '@/lib/supabase/browser';
+import type { AdminData, AdminSession } from '@/lib/admin-data';
+import SignOutButton from './SignOutButton';
+
+type Tab = 'overview' | 'participants' | 'sessions' | 'integrity' | 'export';
+
+const STATUS_LABEL: Record<string, string> = {
+  break_in_progress: 'Break in progress',
+  awaiting_test: 'Break done · test not started',
+  test_in_progress: 'Test in progress',
+  completed: 'Completed'
+};
+
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return <th className={`whitespace-nowrap px-3 py-2 font-medium ${right ? 'text-right' : ''}`}>{children}</th>;
+}
+function Td({ children, right, mono }: { children: React.ReactNode; right?: boolean; mono?: boolean }) {
+  return (
+    <td className={`whitespace-nowrap px-3 py-2 ${right ? 'text-right tabular-nums' : ''} ${mono ? 'font-mono text-xs' : ''}`}>
+      {children}
+    </td>
+  );
+}
+
+export default function AdminDashboard({ data, email }: { data: AdminData; email: string }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>('overview');
+  const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { participants, sessions, trials, events } = data;
+  const pById = useMemo(() => new Map(participants.map((p) => [p.id, p])), [participants]);
+  const name = (pid: string) => {
+    const p = pById.get(pid);
+    return p ? `${p.first_name} ${p.last_name}` : 'Unknown';
+  };
+
+  const completedSessions = sessions.filter((s) => s.status === 'completed');
+  const unfinished = sessions.filter((s) => s.status !== 'completed');
+  const interrupted = sessions.filter((s) => s.break_interruptions > 0 || s.test_interruptions > 0);
+
+  const rows: ResultRow[] = completedSessions.map((s) => ({
+    participant: name(s.participant_id),
+    condition: s.condition,
+    condition_order: s.condition_order,
+    corsi_span: s.corsi_span ?? 0,
+    accuracy: s.accuracy
+  }));
+
+  const completionCounts = [0, 1, 2, 3].map(
+    (k) => participants.filter((p) => completedSessions.filter((s) => s.participant_id === p.id).length === k).length
+  );
+
+  const tabs: [Tab, string][] = [
+    ['overview', 'Overview'],
+    ['participants', `Participants (${participants.length})`],
+    ['sessions', `Sessions (${sessions.length})`],
+    ['integrity', `Unfinished & interruptions (${new Set([...unfinished, ...interrupted].map((s) => s.id)).size})`],
+    ['export', 'Export & account']
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <Eyebrow>Administrator dashboard</Eyebrow>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight">Corsi experiment data</h1>
+          <p className="text-sm muted">Signed in as {email}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            className="btn btn-glass text-sm"
+            disabled={refreshing}
+            onClick={() => {
+              setRefreshing(true);
+              router.refresh();
+              setTimeout(() => setRefreshing(false), 800);
+            }}>
+            {refreshing ? 'Refreshing…' : 'Refresh data'}
+          </button>
+          <SignOutButton />
+        </div>
+      </div>
+
+      <div className="glass-soft flex gap-1 overflow-x-auto rounded-full p-1 text-sm" role="tablist">
+        {tabs.map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`whitespace-nowrap rounded-full px-4 py-1.5 font-medium transition ${tab === key ? 'bg-white text-navy-900' : 'text-white/70 hover:text-white'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'overview' ? (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Stat label="Registered participants" value={participants.length} />
+            <Stat label="Finished all 3 conditions" value={completionCounts[3]} hint={`${participants.length ? Math.round((100 * completionCounts[3]) / participants.length) : 0}% of participants`} />
+            <Stat label="Completed sessions" value={completedSessions.length} hint={`of ${participants.length * 3} possible`} />
+            <Stat label="Unfinished sessions" value={unfinished.length} />
+          </div>
+          <div className="glass rounded-[28px] p-5">
+            <h3 className="font-semibold">Completion statistics</h3>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-4 gap-2 text-center text-sm">
+                {completionCounts.map((c, k) => (
+                  <div key={k} className="glass-soft rounded-2xl p-3">
+                    <p className="text-2xl font-semibold tabular-nums">{c}</p>
+                    <p className="text-xs muted">{k} of 3 done</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                {CONDITIONS.map((c) => (
+                  <div key={c} className="glass-soft rounded-2xl p-3">
+                    <p className="text-2xl font-semibold tabular-nums">{completedSessions.filter((s) => s.condition === c).length}</p>
+                    <p className="text-xs muted">{CONDITION_INFO[c].short} completed</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <ResultsCharts rows={rows} totalParticipants={participants.length} participantLabel="Participant" />
+        </div>
+      ) : null}
+
+      {tab === 'participants' ? (
+        selectedParticipant ? (
+          <ParticipantDetail
+            pid={selectedParticipant}
+            data={data}
+            onBack={() => {
+              setSelectedParticipant(null);
+              setSelectedSession(null);
+            }}
+            selectedSession={selectedSession}
+            onSelectSession={setSelectedSession}
+          />
+        ) : (
+          <div className="glass overflow-x-auto rounded-[28px] p-3">
+            {participants.length === 0 ? (
+              <p className="p-6 text-center muted">No participants yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase tracking-wider muted">
+                  <tr>
+                    <Th>Name</Th>
+                    <Th>Registered</Th>
+                    <Th>Access code</Th>
+                    {CONDITIONS.map((c) => (
+                      <Th key={c} right>{CONDITION_INFO[c].short}</Th>
+                    ))}
+                    <Th>Progress</Th>
+                    <Th>{''}</Th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {participants.map((p) => {
+                    const ps = sessions.filter((s) => s.participant_id === p.id);
+                    return (
+                      <tr key={p.id} className="hover:bg-white/5">
+                        <Td>{p.first_name} {p.last_name}</Td>
+                        <Td>{formatDateTime(p.created_at)}</Td>
+                        <Td mono>{p.access_code}</Td>
+                        {CONDITIONS.map((c) => {
+                          const s = ps.find((x) => x.condition === c);
+                          return (
+                            <Td key={c} right>
+                              {s?.status === 'completed' ? <strong>{s.corsi_span}</strong> : s ? <span className="text-amber-200">…</span> : <span className="muted">—</span>}
+                            </Td>
+                          );
+                        })}
+                        <Td>{ps.filter((s) => s.status === 'completed').length}/3</Td>
+                        <Td>
+                          <button className="text-sky-200 hover:underline" onClick={() => setSelectedParticipant(p.id)}>
+                            View
+                          </button>
+                        </Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )
+      ) : null}
+
+      {tab === 'sessions' ? (
+        <SessionTable sessions={sessions} name={name} onOpen={(s) => { setSelectedParticipant(s.participant_id); setSelectedSession(s.id); setTab('participants'); }} />
+      ) : null}
+
+      {tab === 'integrity' ? (
+        <div className="space-y-5">
+          <div>
+            <h2 className="mb-2 text-lg font-semibold">Unfinished sessions ({unfinished.length})</h2>
+            <SessionTable sessions={unfinished} name={name} onOpen={(s) => { setSelectedParticipant(s.participant_id); setSelectedSession(s.id); setTab('participants'); }} />
+          </div>
+          <div>
+            <h2 className="mb-2 text-lg font-semibold">Interrupted breaks / tests ({interrupted.length})</h2>
+            <p className="mb-2 text-sm muted">
+              Break interruptions = the break page was closed, refreshed or navigated away from. Test interruptions = a
+              trial was shown but the page was left before answering (a new sequence was issued on return).
+            </p>
+            <div className="glass overflow-x-auto rounded-[28px] p-3">
+              {interrupted.length === 0 ? (
+                <p className="p-6 text-center muted">No interruptions recorded.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs uppercase tracking-wider muted">
+                    <tr><Th>Participant</Th><Th>Condition</Th><Th right>Break interruptions</Th><Th right>Tab switches</Th><Th right>Test interruptions</Th><Th>Event log</Th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {interrupted.map((s) => {
+                      const ev = events.filter((e) => e.session_id === s.id);
+                      return (
+                        <tr key={s.id}>
+                          <Td>{name(s.participant_id)}</Td>
+                          <Td>{CONDITION_INFO[s.condition].short}</Td>
+                          <Td right>{s.break_interruptions}</Td>
+                          <Td right>{ev.filter((e) => e.event_type === 'tab_hidden').length}</Td>
+                          <Td right>{s.test_interruptions}</Td>
+                          <td className="px-3 py-2 text-xs muted">
+                            {ev.filter((e) => e.event_type === 'page_closed').map((e) => (
+                              <div key={e.id}>closed {formatDateTime(e.occurred_at)} ({formatDuration(e.client_remaining_seconds)} left)</div>
+                            ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'export' ? <ExportPanel /> : null}
+
+      <p className="text-xs muted">
+        {trials.length} trial records · {events.length} break events loaded. Completed results are read-only — the
+        database rejects edits and deletions.
+      </p>
+    </div>
+  );
+}
+
+function SessionTable({
+  sessions,
+  name,
+  onOpen
+}: {
+  sessions: AdminSession[];
+  name: (pid: string) => string;
+  onOpen: (s: AdminSession) => void;
+}) {
+  if (sessions.length === 0) return <div className="glass rounded-[28px] p-6 text-center muted">No sessions.</div>;
+  return (
+    <div className="glass overflow-x-auto rounded-[28px] p-3">
+      <table className="w-full text-sm">
+        <thead className="text-left text-xs uppercase tracking-wider muted">
+          <tr>
+            <Th>Participant</Th><Th>Condition</Th><Th right>Order</Th><Th>Status</Th><Th>Break start</Th><Th>Break completed</Th>
+            <Th right>Break length</Th><Th>Test start</Th><Th>Test end</Th><Th right>Span</Th><Th right>Accuracy</Th><Th>{''}</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/10">
+          {sessions.map((s) => (
+            <tr key={s.id} className="hover:bg-white/5">
+              <Td>{name(s.participant_id)}</Td>
+              <Td>{CONDITION_INFO[s.condition].short}</Td>
+              <Td right>{s.condition_order}</Td>
+              <Td>{STATUS_LABEL[s.status]}</Td>
+              <Td>{formatDateTime(s.break_started_at)}</Td>
+              <Td>{formatDateTime(s.break_completed_at)}</Td>
+              <Td right>{formatDuration(s.actual_break_seconds)}</Td>
+              <Td>{formatDateTime(s.test_started_at)}</Td>
+              <Td>{formatDateTime(s.test_completed_at)}</Td>
+              <Td right>{s.corsi_span ?? '—'}</Td>
+              <Td right>{formatPct(s.accuracy)}</Td>
+              <Td><button className="text-sky-200 hover:underline" onClick={() => onOpen(s)}>Details</button></Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ParticipantDetail({
+  pid,
+  data,
+  onBack,
+  selectedSession,
+  onSelectSession
+}: {
+  pid: string;
+  data: AdminData;
+  onBack: () => void;
+  selectedSession: string | null;
+  onSelectSession: (id: string | null) => void;
+}) {
+  const p = data.participants.find((x) => x.id === pid);
+  if (!p) return null;
+  const ps = data.sessions.filter((s) => s.participant_id === pid).sort((a, b) => a.condition_order - b.condition_order);
+  const sel = ps.find((s) => s.id === selectedSession) ?? null;
+  const st = sel ? data.trials.filter((t) => t.session_id === sel.id).sort((a, b) => a.trial_number - b.trial_number) : [];
+  const ev = sel ? data.events.filter((e) => e.session_id === sel.id) : [];
+
+  return (
+    <div className="space-y-5">
+      <button className="text-sm text-sky-200 hover:underline" onClick={onBack}>← All participants</button>
+      <div className="glass rounded-[28px] p-6">
+        <h2 className="text-2xl font-semibold">{p.first_name} {p.last_name}</h2>
+        <div className="mt-2 grid gap-1 text-sm muted sm:grid-cols-2">
+          <p>Registered: {formatDateTime(p.created_at)}</p>
+          <p>Consent (all three): {p.consent_participation && p.consent_quiet_environment && p.consent_guidelines ? 'Yes' : 'No'} · {formatDateTime(p.consented_at)}</p>
+          <p>Assigned (counterbalanced) order: {p.assigned_order.map((c) => CONDITION_INFO[c as Condition].short).join(' → ')}</p>
+          <p>Actual order: {ps.map((s) => CONDITION_INFO[s.condition].short).join(' → ') || '—'}</p>
+          <p>Access code: <span className="font-mono text-white">{p.access_code}</span></p>
+          <p>Experiment completed: {p.experiment_completed ? formatDateTime(p.experiment_completed_at) : 'No'}</p>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        {CONDITIONS.map((c) => {
+          const s = ps.find((x) => x.condition === c);
+          return (
+            <button
+              key={c}
+              disabled={!s}
+              onClick={() => s && onSelectSession(s.id)}
+              className={`glass rounded-[24px] p-5 text-left ${sel?.id === s?.id && s ? 'ring-2 ring-sky-200/70' : ''} ${!s ? 'opacity-60' : 'hover:bg-white/10'}`}>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 font-semibold"><ConditionIcon condition={c} className="h-5 w-5" style={{ color: CONDITION_INFO[c].accent }} />{CONDITION_INFO[c].short}</span>
+                <StatusPill status={!s ? 'not_started' : s.status === 'completed' ? 'completed' : 'in_progress'} />
+              </div>
+              <p className="mt-3 text-3xl font-semibold tabular-nums">{s?.corsi_span ?? '--'}</p>
+              <p className="text-xs muted">{s ? `#${s.condition_order} · ${formatPct(s.accuracy)} accuracy` : 'Not started'}</p>
+            </button>
+          );
+        })}
+      </div>
+      {sel ? (
+        <div className="space-y-4">
+          <div className="glass rounded-[28px] p-6">
+            <h3 className="font-semibold">{CONDITION_INFO[sel.condition].title} — exact timestamps</h3>
+            <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+              {[
+                ['Status', STATUS_LABEL[sel.status]],
+                ['Break started', formatDateTime(sel.break_started_at)],
+                ['Break scheduled end', formatDateTime(sel.break_ends_at)],
+                ['Break completed', formatDateTime(sel.break_completed_at)],
+                ['Expected break', formatDuration(sel.expected_break_seconds)],
+                ['Actual break', formatDuration(sel.actual_break_seconds)],
+                ['Test started', formatDateTime(sel.test_started_at)],
+                ['Test completed', formatDateTime(sel.test_completed_at)],
+                ['Test duration', formatDuration(sel.test_duration_seconds)],
+                ['Break interruptions', sel.break_interruptions],
+                ['Test interruptions', sel.test_interruptions],
+                ['Span / total score', `${sel.corsi_span ?? '—'} / ${sel.total_score ?? '—'}`],
+                ['Correct / incorrect / attempts', `${sel.correct_trials ?? '—'} / ${sel.incorrect_trials ?? '—'} / ${sel.total_attempts ?? '—'}`],
+                ['Accuracy', formatPct(sel.accuracy)]
+              ].map(([k, v]) => (
+                <div key={String(k)} className="flex justify-between gap-3 border-b border-white/5 py-1">
+                  <dt className="muted">{k}</dt>
+                  <dd className="text-right tabular-nums">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {ev.length ? (
+              <p className="mt-3 text-xs muted">
+                Break events: {ev.map((e) => `${e.event_type.replace('_', ' ')} @ ${new Date(e.occurred_at).toLocaleTimeString()}`).join(' · ')}
+              </p>
+            ) : null}
+          </div>
+          <div className="glass overflow-x-auto rounded-[28px] p-3">
+            <h3 className="px-3 pt-3 font-semibold">Trial-by-trial results</h3>
+            {st.length === 0 ? (
+              <p className="p-6 text-center muted">No trials recorded.</p>
+            ) : (
+              <table className="mt-2 w-full text-sm">
+                <thead className="text-left text-xs uppercase tracking-wider muted">
+                  <tr><Th>#</Th><Th right>Length</Th><Th right>Attempt</Th><Th>Sequence (1–9)</Th><Th>Response</Th><Th>Result</Th><Th right>RT</Th><Th>Presented</Th><Th>Responded</Th></tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {st.map((t) => (
+                    <tr key={t.id}>
+                      <Td>{t.trial_number}</Td>
+                      <Td right>{t.sequence_length}</Td>
+                      <Td right>{t.attempt_at_length}</Td>
+                      <Td mono>{t.sequence.map((b) => b + 1).join('-')}</Td>
+                      <Td mono>{t.response.map((b) => b + 1).join('-')}</Td>
+                      <Td><span className={t.is_correct ? 'text-emerald-300' : 'text-red-300'}>{t.is_correct ? 'Correct' : 'Incorrect'}</span></Td>
+                      <Td right>{t.response_time_ms != null ? `${t.response_time_ms} ms` : '—'}</Td>
+                      <Td>{formatDateTime(t.presented_at)}</Td>
+                      <Td>{formatDateTime(t.responded_at)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm muted">Select a condition above to see timestamps and trial-by-trial data.</p>
+      )}
+    </div>
+  );
+}
+
+function ExportPanel() {
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [msg, setMsg] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+
+  async function changePassword(e: FormEvent) {
+    e.preventDefault();
+    if (pw.length < 12) return setMsg({ tone: 'error', text: 'Use at least 12 characters.' });
+    if (pw !== pw2) return setMsg({ tone: 'error', text: 'Passwords do not match.' });
+    const { error } = await browserClient().auth.updateUser({ password: pw });
+    setMsg(error ? { tone: 'error', text: error.message } : { tone: 'success', text: 'Password updated.' });
+    if (!error) {
+      setPw('');
+      setPw2('');
+    }
+  }
+
+  const exports: [string, string, string][] = [
+    ['sessions', 'Sessions', 'One row per participant × condition: all timestamps and scores.'],
+    ['trials', 'Trials', 'Every trial: sequence, response, correctness, response time.'],
+    ['participants', 'Participants', 'Names, consent, counterbalanced order, completion.'],
+    ['break-events', 'Break events', 'Page opened/closed and tab hidden/visible log.']
+  ];
+  return (
+    <div className="grid gap-5 lg:grid-cols-2">
+      <div className="glass rounded-[28px] p-6">
+        <h2 className="text-lg font-semibold">Export CSV</h2>
+        <div className="mt-4 space-y-3">
+          {exports.map(([type, label, desc]) => (
+            <a key={type} href={`/api/admin/export?type=${type}`} className="glass-soft flex items-center justify-between gap-3 rounded-2xl p-4 hover:bg-white/10" download>
+              <span>
+                <span className="block font-medium">{label}.csv</span>
+                <span className="block text-xs muted">{desc}</span>
+              </span>
+              <span className="text-sm text-sky-200">Download</span>
+            </a>
+          ))}
+        </div>
+      </div>
+      <form onSubmit={changePassword} className="glass space-y-3 rounded-[28px] p-6">
+        <h2 className="text-lg font-semibold">Change administrator password</h2>
+        <input type="password" className="input" placeholder="New password (12+ characters)" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <input type="password" className="input" placeholder="Repeat new password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+        {msg ? <Alert tone={msg.tone}>{msg.text}</Alert> : null}
+        <button className="btn btn-primary">Update password</button>
+      </form>
+    </div>
+  );
+}

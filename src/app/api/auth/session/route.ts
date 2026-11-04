@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { adminAuth } from '@/lib/server/firebase-admin';
+import { verifyFirebaseIdToken } from '@/lib/server/verify-id-token';
 import { getParticipantState } from '@/lib/server/experiment';
 import { clearSessionCookie, isAdminEmail, setSessionCookie } from '@/lib/server/session';
 import { errorResponse } from '@/lib/participant-server';
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
     let decoded;
     try {
-      decoded = await adminAuth().verifyIdToken(body.idToken, true);
+      decoded = await verifyFirebaseIdToken(body.idToken);
     } catch {
       return NextResponse.json({ error: 'Google sign-in could not be verified. Please try again.' }, { status: 401 });
     }
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     }
     const email = decoded.email.toLowerCase();
     const name = typeof decoded.name === 'string' ? decoded.name : '';
-    await setSessionCookie({ uid: decoded.uid, email, name });
-    const state = await getParticipantState(decoded.uid);
+    await setSessionCookie({ uid: decoded.sub, email, name });
+    const state = await getParticipantState(decoded.sub);
     return NextResponse.json({ isAdmin: isAdminEmail(email), registered: Boolean(state), email, name });
   } catch (err) {
     return errorResponse(err);

@@ -1,6 +1,5 @@
 import 'server-only';
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
 export const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'corsitask';
@@ -37,8 +36,4 @@ export function db(): Firestore {
     g.__corsiFirestore = fs;
   }
   return g.__corsiFirestore;
-}
-
-export function adminAuth() {
-  return getAuth(app());
 }

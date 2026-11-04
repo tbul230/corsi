@@ -1,31 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { CONDITIONS, type Condition } from '@/lib/constants';
-import {
-  callRpc,
-  clearParticipantToken,
-  errorResponse,
-  getParticipantToken,
-  RpcError,
-  setParticipantToken
-} from '@/lib/participant-server';
+import { errorResponse, requireUser } from '@/lib/participant-server';
+import * as X from '@/lib/server/experiment';
 
 export const dynamic = 'force-dynamic';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SID = /^[A-Za-z0-9_-]{1,160}__(video_game|youtube|no_screen)$/;
 const BREAK_EVENTS = ['page_opened', 'page_closed', 'tab_hidden', 'tab_visible'];
 
 function bad(message: string) {
   return NextResponse.json({ error: message, code: 'BAD_REQUEST' }, { status: 400 });
-}
-
-function str(v: unknown, max = 100) {
-  return typeof v === 'string' && v.trim().length > 0 && v.length <= max ? v : null;
-}
-
-async function requireToken() {
-  const token = await getParticipantToken();
-  if (!token) throw new RpcError('NOT_AUTHENTICATED', 401, 'Please register or sign in first.');
-  return token;
 }
 
 type Body = Record<string, unknown>;
@@ -42,154 +26,69 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ action: st
   }
 
   try {
+    const user = await requireUser();
+    const pid = user.pid;
+    const sid = typeof body.sessionId === 'string' ? body.sessionId : '';
+    const needSid = () => {
+      if (!SID.test(sid) || !sid.startsWith(`${pid}__`)) throw new X.ExperimentError('SESSION_NOT_FOUND');
+    };
+
     switch (action) {
-      case 'check-name': {
-        const first = str(body.firstName, 60);
-        const last = str(body.lastName, 60);
-        if (!first || !last) return bad('First and last name are required.');
-        const available = await callRpc<boolean>('check_name_available', {
-          p_first_name: first,
-          p_last_name: last
-        });
-        return NextResponse.json({ available });
-      }
+      case 'check-name':
+        return NextResponse.json({ available: await X.isNameAvailable(String(body.firstName ?? ''), String(body.lastName ?? '')) });
 
       case 'register': {
-        const first = str(body.firstName, 60);
-        const last = str(body.lastName, 60);
-        if (!first || !last) return bad('First and last name are required.');
-        const consent = body.consent as Record<string, unknown> | undefined;
-        const result = await callRpc<{ token: string }>('register_participant', {
-          p_first_name: first,
-          p_last_name: last,
-          p_consent_participation: consent?.participation === true,
-          p_consent_quiet_environment: consent?.quiet === true,
-          p_consent_guidelines: consent?.guidelines === true
-        });
-        const { token, ...state } = result;
-        await setParticipantToken(token);
-        return NextResponse.json(state);
-      }
-
-      case 'resume': {
-        const first = str(body.firstName, 60);
-        const last = str(body.lastName, 60);
-        const code = str(body.accessCode, 12);
-        if (!first || !last || !code) return bad('Name and access code are required.');
-        const result = await callRpc<{ token: string }>('resume_participant', {
-          p_first_name: first,
-          p_last_name: last,
-          p_access_code: code
-        });
-        const { token, ...state } = result;
-        await setParticipantToken(token);
-        return NextResponse.json(state);
-      }
-
-      case 'test-mode': {
-        const code = typeof body.code === 'string' && body.code.length <= 200 ? body.code : null;
-        if (!code) return bad('Admin code is required.');
-        const result = await callRpc<{ token: string }>('start_test_mode', { p_code: code });
-        const { token, ...state } = result;
-        await setParticipantToken(token);
-        return NextResponse.json(state);
-      }
-
-      case 'skip-break': {
-        const token = await requireToken();
-        if (typeof body.sessionId !== 'string' || !UUID.test(body.sessionId)) return bad('Invalid session.');
-        return NextResponse.json(await callRpc('skip_break', { p_token: token, p_session: body.sessionId }));
-      }
-
-      case 'reset-condition': {
-        const token = await requireToken();
-        const condition = body.condition as Condition;
-        if (!CONDITIONS.includes(condition)) return bad('Unknown break condition.');
+        if (pid !== user.uid) throw new X.ExperimentError('ALREADY_REGISTERED');
+        const consent = (body.consent ?? {}) as Record<string, unknown>;
         return NextResponse.json(
-          await callRpc('reset_test_condition', { p_token: token, p_condition: condition })
+          await X.registerParticipant(user, { firstName: body.firstName, lastName: body.lastName, consent })
         );
-      }
-
-      case 'logout': {
-        const token = await getParticipantToken();
-        if (token) await callRpc('logout_participant', { p_token: token }).catch(() => undefined);
-        await clearParticipantToken();
-        return NextResponse.json({ ok: true });
       }
 
       case 'state': {
-        const token = await requireToken();
-        return NextResponse.json(await callRpc('get_participant_state', { p_token: token }));
+        const state = await X.getParticipantState(pid);
+        if (!state) throw new X.ExperimentError('NOT_REGISTERED');
+        return NextResponse.json(state);
       }
 
       case 'start-break': {
-        const token = await requireToken();
         const condition = body.condition as Condition;
         if (!CONDITIONS.includes(condition)) return bad('Unknown break condition.');
-        return NextResponse.json(
-          await callRpc('start_break', { p_token: token, p_condition: condition })
-        );
+        return NextResponse.json(await X.startBreak(pid, condition));
       }
 
-      case 'session': {
-        const token = await requireToken();
-        if (typeof body.sessionId !== 'string' || !UUID.test(body.sessionId)) return bad('Invalid session.');
-        return NextResponse.json(
-          await callRpc('get_session', { p_token: token, p_session: body.sessionId })
-        );
-      }
+      case 'session':
+        needSid();
+        return NextResponse.json(await X.getSessionDetail(pid, sid));
 
       case 'break-event': {
-        const token = await requireToken();
-        if (typeof body.sessionId !== 'string' || !UUID.test(body.sessionId)) return bad('Invalid session.');
+        needSid();
         if (typeof body.event !== 'string' || !BREAK_EVENTS.includes(body.event)) return bad('Invalid event.');
-        const remaining = Number.isFinite(body.remaining) ? Math.round(body.remaining as number) : null;
-        await callRpc('record_break_event', {
-          p_token: token,
-          p_session: body.sessionId,
-          p_event: body.event,
-          p_remaining: remaining
-        });
+        const remaining = Number.isFinite(body.remaining) ? (body.remaining as number) : null;
+        await X.recordBreakEvent(pid, sid, body.event, remaining);
         return NextResponse.json({ ok: true });
       }
 
-      case 'complete-break': {
-        const token = await requireToken();
-        if (typeof body.sessionId !== 'string' || !UUID.test(body.sessionId)) return bad('Invalid session.');
-        return NextResponse.json(
-          await callRpc('complete_break', { p_token: token, p_session: body.sessionId })
-        );
-      }
+      case 'complete-break':
+        needSid();
+        return NextResponse.json(await X.completeBreak(pid, sid));
 
-      case 'next-trial': {
-        const token = await requireToken();
-        if (typeof body.sessionId !== 'string' || !UUID.test(body.sessionId)) return bad('Invalid session.');
-        return NextResponse.json(
-          await callRpc('next_trial', { p_token: token, p_session: body.sessionId })
-        );
-      }
+      case 'skip-break':
+        needSid();
+        return NextResponse.json(await X.skipBreak(pid, sid));
 
-      case 'submit-trial': {
-        const token = await requireToken();
-        if (typeof body.sessionId !== 'string' || !UUID.test(body.sessionId)) return bad('Invalid session.');
-        const response = body.response;
-        if (
-          !Array.isArray(response) ||
-          response.length < 1 ||
-          response.length > 9 ||
-          !response.every((n) => Number.isInteger(n) && n >= 0 && n <= 8)
-        ) {
-          return bad('Invalid response.');
-        }
-        const rt = Number.isFinite(body.responseTimeMs) ? Math.round(body.responseTimeMs as number) : null;
-        return NextResponse.json(
-          await callRpc('submit_trial', {
-            p_token: token,
-            p_session: body.sessionId,
-            p_response: response,
-            p_response_time_ms: rt
-          })
-        );
+      case 'next-trial':
+        needSid();
+        return NextResponse.json(await X.nextTrial(pid, sid));
+
+      case 'submit-trial':
+        needSid();
+        return NextResponse.json(await X.submitTrial(pid, sid, body.response, body.responseTimeMs));
+
+      case 'reset-condition': {
+        const condition = body.condition as Condition;
+        if (!CONDITIONS.includes(condition)) return bad('Unknown break condition.');
+        return NextResponse.json(await X.resetTestCondition(pid, condition));
       }
 
       default:

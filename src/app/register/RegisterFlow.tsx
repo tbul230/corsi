@@ -4,12 +4,11 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, Card, Eyebrow } from '@/components/ui';
 import { ArrowIcon, CheckIcon } from '@/components/icons';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 import { api, ApiError } from '@/lib/api';
 import { CONSENT_ITEMS } from '@/lib/constants';
-import type { ParticipantState } from '@/lib/types';
 
-type Step = 'name' | 'consent' | 'code';
-type Mode = 'new' | 'returning';
+type Step = 'name' | 'consent';
 
 const NAME_RE = /^\p{L}[\p{L} '’.-]*$/u;
 
@@ -21,38 +20,58 @@ function validateName(v: string, label: string) {
   return null;
 }
 
-export default function RegisterFlow() {
+function splitName(full: string) {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return { first: parts[0] ?? '', last: '' };
+  return { first: parts.slice(0, -1).join(' '), last: parts[parts.length - 1] };
+}
+
+export default function RegisterFlow({ user }: { user: { email: string; name: string } | null }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>('new');
+  const initial = splitName(user?.name ?? '');
   const [step, setStep] = useState<Step>('name');
-  const [first, setFirst] = useState('');
-  const [last, setLast] = useState('');
-  const [code, setCode] = useState('');
+  const [first, setFirst] = useState(initial.first);
+  const [last, setLast] = useState(initial.last);
   const [consent, setConsent] = useState({ participation: false, quiet: false, guidelines: false });
   const [fieldErrors, setFieldErrors] = useState<{ first?: string | null; last?: string | null }>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [registered, setRegistered] = useState<ParticipantState | null>(null);
 
   const allConsented = consent.participation && consent.quiet && consent.guidelines;
 
-  function checkNames() {
-    const errs = { first: validateName(first, 'First name'), last: validateName(last, 'Last name') };
-    setFieldErrors(errs);
-    return !errs.first && !errs.last;
+  if (!user) {
+    return (
+      <div className="fade-up space-y-5">
+        <div>
+          <Eyebrow>Step 1 of 3</Eyebrow>
+          <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl">Sign in to take part</h1>
+          <p className="mt-2 text-ink-2">
+            Everyone signs in with Google so your three sessions stay linked to you and nobody else can submit results
+            in your name. Already registered? Signing in takes you straight to your progress.
+          </p>
+        </div>
+        <Card className="space-y-4">
+          <GoogleSignInButton label="Sign in with Google" />
+          <p className="text-xs text-ink-3">
+            We only receive your name and email address from Google. Researchers sign in the same way and are recognised
+            automatically.
+          </p>
+        </Card>
+      </div>
+    );
   }
 
   async function submitName(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!checkNames()) return;
+    const errs = { first: validateName(first, 'First name'), last: validateName(last, 'Last name') };
+    setFieldErrors(errs);
+    if (errs.first || errs.last) return;
     setBusy(true);
     try {
       const { available } = await api<{ available: boolean }>('check-name', { firstName: first, lastName: last });
       if (!available) {
-        setError(
-          'A participant with this name is already registered. If that is you, switch to “Returning participant” and enter your access code.'
-        );
+        setError('A participant with this name is already registered. If that is you, sign out and sign in with the Google account you used before.');
         return;
       }
       setStep('consent');
@@ -69,65 +88,22 @@ export default function RegisterFlow() {
     setBusy(true);
     setError(null);
     try {
-      const state = await api<ParticipantState>('register', { firstName: first, lastName: last, consent });
-      setRegistered(state);
-      setStep('code');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong.');
-      if (err instanceof ApiError && err.code === 'DUPLICATE_NAME') setStep('name');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitReturning(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    if (!checkNames()) return;
-    if (!code.trim()) {
-      setError('Enter the 6-character access code you were given at registration.');
-      return;
-    }
-    setBusy(true);
-    try {
-      await api('resume', { firstName: first, lastName: last, accessCode: code });
+      await api('register', { firstName: first, lastName: last, consent });
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong.');
+      if (err instanceof ApiError && err.code === 'DUPLICATE_NAME') setStep('name');
+      if (err instanceof ApiError && err.code === 'ALREADY_REGISTERED') router.push('/dashboard');
       setBusy(false);
     }
-  }
-
-  if (step === 'code' && registered) {
-    return (
-      <Card className="fade-up text-center">
-        <div className="pop mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
-          <CheckIcon className="h-7 w-7" />
-        </div>
-        <h1 className="mt-4 text-2xl font-semibold">Welcome, {registered.participant.first_name}!</h1>
-        <p className="mt-2 muted">You are registered. Please write down your personal access code:</p>
-        <p
-          data-testid="access-code"
-          className="glass-soft fade-up mx-auto mt-5 w-fit rounded-2xl px-6 py-3 font-mono text-3xl font-semibold tracking-[0.25em]">
-          {registered.participant.access_code}
-        </p>
-        <p className="mx-auto mt-4 max-w-md text-sm muted">
-          You will need your name and this code to continue the experiment on another device or browser. It is also
-          shown on your progress dashboard.
-        </p>
-        <button className="btn btn-primary mt-8" onClick={() => { router.push('/dashboard'); router.refresh(); }}>
-          Continue to my dashboard <ArrowIcon className="h-4 w-4" />
-        </button>
-      </Card>
-    );
   }
 
   if (step === 'consent') {
     return (
       <form onSubmit={submitConsent} className="fade-up space-y-5">
         <div>
-          <Eyebrow>Step 2 of 2</Eyebrow>
+          <Eyebrow>Step 3 of 3</Eyebrow>
           <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl">Experiment agreement</h1>
         </div>
         <Card className="space-y-4 text-sm leading-relaxed">
@@ -137,7 +113,7 @@ export default function RegisterFlow() {
               Your first and last name (to link your three sessions), your consent, which break you took and when, the
               exact break and test timestamps, and every Corsi trial: the sequence shown, the blocks you tapped,
               whether it was correct and how long you took. Whether you left the break page is logged for experiment
-              integrity. No email, age, location or other personal information is collected.
+              integrity. Your Google account email is stored so you can sign in again. No age, location or other personal information is collected.
             </p>
           </div>
           <div>
@@ -201,101 +177,41 @@ export default function RegisterFlow() {
     );
   }
 
+
   return (
     <div className="fade-up space-y-5">
       <div>
-        <Eyebrow>{mode === 'new' ? 'Step 1 of 2' : 'Welcome back'}</Eyebrow>
-        <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl">
-          {mode === 'new' ? 'Participant registration' : 'Continue as a returning participant'}
-        </h1>
-      </div>
-      <div className="glass-soft inline-flex rounded-xl p-1 text-sm" role="tablist">
-        {(['new', 'returning'] as Mode[]).map((m) => (
-          <button
-            key={m}
-            role="tab"
-            aria-selected={mode === m}
-            onClick={() => {
-              setMode(m);
-              setError(null);
-            }}
-            className={`rounded-md px-3.5 py-1.5 font-medium transition-colors ${mode === m ? 'bg-white/12 text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]' : 'text-ink-2 hover:text-ink'}`}>
-            {m === 'new' ? 'New participant' : 'Returning participant'}
-          </button>
-        ))}
+        <Eyebrow>Step 2 of 3</Eyebrow>
+        <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl">Confirm your name</h1>
+        <p className="mt-2 text-ink-2">
+          Signed in as <span className="text-ink">{user.email}</span>. Please enter your real first and last name; it links
+          your results across all three break conditions.
+        </p>
       </div>
       <Card>
-        <form onSubmit={mode === 'new' ? submitName : submitReturning} noValidate className="space-y-5">
-          <p className="text-sm muted">
-            {mode === 'new'
-              ? 'Please enter your real first and last name. Your name links your results across all three break conditions.'
-              : 'Enter the same name you registered with and your 6-character access code.'}
-          </p>
+        <form onSubmit={submitName} noValidate className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="first" className="mb-1.5 block text-sm font-medium">
-                First name
-              </label>
-              <input
-                id="first"
-                className="input"
-                autoComplete="given-name"
-                value={first}
-                maxLength={60}
-                onChange={(e) => setFirst(e.target.value)}
-                aria-invalid={Boolean(fieldErrors.first)}
-                required
-              />
+              <label htmlFor="first" className="mb-1.5 block text-sm font-medium">First name</label>
+              <input id="first" className="input" autoComplete="given-name" value={first} maxLength={60}
+                onChange={(e) => setFirst(e.target.value)} aria-invalid={Boolean(fieldErrors.first)} required />
               {fieldErrors.first ? <p className="mt-1.5 text-xs text-red-300">{fieldErrors.first}</p> : null}
             </div>
             <div>
-              <label htmlFor="last" className="mb-1.5 block text-sm font-medium">
-                Last name
-              </label>
-              <input
-                id="last"
-                className="input"
-                autoComplete="family-name"
-                value={last}
-                maxLength={60}
-                onChange={(e) => setLast(e.target.value)}
-                aria-invalid={Boolean(fieldErrors.last)}
-                required
-              />
+              <label htmlFor="last" className="mb-1.5 block text-sm font-medium">Last name</label>
+              <input id="last" className="input" autoComplete="family-name" value={last} maxLength={60}
+                onChange={(e) => setLast(e.target.value)} aria-invalid={Boolean(fieldErrors.last)} required />
               {fieldErrors.last ? <p className="mt-1.5 text-xs text-red-300">{fieldErrors.last}</p> : null}
             </div>
           </div>
-          {mode === 'returning' ? (
-            <div>
-              <label htmlFor="code" className="mb-1.5 block text-sm font-medium">
-                Access code
-              </label>
-              <input
-                id="code"
-                className="input font-mono uppercase tracking-[0.3em]"
-                value={code}
-                maxLength={12}
-                autoComplete="off"
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="ABC123"
-              />
-            </div>
-          ) : null}
           {error ? <Alert>{error}</Alert> : null}
           <div className="flex justify-end">
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Checking…' : mode === 'new' ? 'Continue' : 'Sign in'}
-              <ArrowIcon className="h-4 w-4" />
+              {busy ? 'Checking…' : 'Continue'} <ArrowIcon className="h-4 w-4" />
             </button>
           </div>
         </form>
       </Card>
-      <p className="text-center text-xs muted">
-        Researcher?{' '}
-        <a href="/test-mode" className="underline underline-offset-2 hover:text-ink">
-          Admin test mode
-        </a>
-      </p>
     </div>
   );
 }

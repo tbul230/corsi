@@ -2,9 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { api } from '@/lib/api';
+import { signOutEverywhere } from '@/lib/firebase/client';
 
-export default function LogoutButton() {
+export default function LogoutButton({ label = 'Sign out' }: { label?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   return (
@@ -12,13 +12,12 @@ export default function LogoutButton() {
       className="btn btn-glass text-sm"
       disabled={busy}
       onClick={async () => {
-        if (!confirm('Sign out of this device? You can sign back in with your name and access code.')) return;
         setBusy(true);
-        await api('logout').catch(() => undefined);
+        await signOutEverywhere();
         router.push('/');
         router.refresh();
       }}>
-      Not you? Sign out
+      {busy ? 'Signing out…' : label}
     </button>
   );
 }

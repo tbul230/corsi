@@ -11,14 +11,13 @@ import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
 import { formatDateTime, formatPct } from '@/lib/format';
 import { loadParticipantState } from '@/lib/participant-server';
 import { conditionStatus, progressOf } from '@/lib/progress';
-import type { ParticipantState } from '@/lib/types';
 
 export const metadata: Metadata = { title: 'My progress' };
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const state = await loadParticipantState<ParticipantState>();
-  if (!state) redirect('/register');
+  const { user, state } = await loadParticipantState();
+  if (!user || !state) redirect('/register');
   const { participant } = state;
   const { byCondition, completed, active, recommended } = progressOf(state);
   const done = participant.experiment_completed;
@@ -144,11 +143,14 @@ export default async function DashboardPage() {
           )}
 
           <Card>
-            <p className="label">Your access code</p>
-            <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.2em]">{participant.access_code}</p>
+            <p className="label">Signed in with Google</p>
+            <p className="mt-1 truncate font-medium">{user.email}</p>
             <p className="mt-2 text-sm text-ink-2">
-              Use it with your name to continue on another device or browser.
+              Sign in with this Google account on any device to continue where you left off.
             </p>
+            {user.isAdmin ? (
+              <Link href="/admin" className="btn btn-glass mt-4 w-full">Open admin dashboard</Link>
+            ) : null}
           </Card>
         </div>
       </div>

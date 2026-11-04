@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Card, Container } from '@/components/ui';
-import { getAdmin } from '@/lib/supabase/server';
-import { loadAdminData } from '@/lib/admin-data';
+import { getAdminData } from '@/lib/server/experiment';
+import { getSessionUser } from '@/lib/server/session';
 import AdminDashboard from './AdminDashboard';
 import SignOutButton from './SignOutButton';
 
@@ -10,27 +10,27 @@ export const metadata: Metadata = { title: 'Administrator dashboard', robots: { 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPage() {
-  const { supabase, user, isAdmin } = await getAdmin();
+  const user = await getSessionUser();
   if (!user) redirect('/admin/login');
-  if (!isAdmin) {
+  if (!user.isAdmin) {
     return (
       <Container className="flex flex-1 items-center justify-center py-12">
-      <div className="w-full max-w-md">
-        <Card className="text-center">
-          <h1 className="text-xl font-semibold">Access denied</h1>
-          <p className="mt-2 text-sm muted">
-            {user.email} is signed in but is not an administrator of this experiment.
-          </p>
-          <div className="mt-6"><SignOutButton /></div>
-        </Card>
+        <div className="w-full max-w-md">
+          <Card className="text-center">
+            <h1 className="text-xl font-semibold">Access denied</h1>
+            <p className="mt-2 text-sm muted">{user.email} is signed in but is not an administrator of this experiment.</p>
+            <div className="mt-6">
+              <SignOutButton />
+            </div>
+          </Card>
         </div>
-    </Container>
+      </Container>
     );
   }
-  const data = await loadAdminData(supabase);
+  const data = await getAdminData();
   return (
     <Container className="pt-8">
-      <AdminDashboard data={data} email={user.email ?? ''} />
+      <AdminDashboard data={data} email={user.email} />
     </Container>
   );
 }

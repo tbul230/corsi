@@ -32,3 +32,7 @@ next-env.d.ts
 .env
 .env*.local
 test-results
+
+# Firebase
+*-debug.log
+.firebase/

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Container } from '@/components/ui';
 import { ArrowIcon, ConditionIcon } from '@/components/icons';
 import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
-import { getParticipantToken } from '@/lib/participant-server';
+import { getSessionUser } from '@/lib/server/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +40,7 @@ function TrialIllustration() {
 }
 
 export default async function Home() {
-  const signedIn = Boolean(await getParticipantToken());
+  const signedIn = Boolean(await getSessionUser());
   return (
     <>
       <Container className="py-10 sm:py-14 lg:py-20">

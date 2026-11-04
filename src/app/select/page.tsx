@@ -3,14 +3,13 @@ import { redirect } from 'next/navigation';
 import { Container, PageHeader } from '@/components/ui';
 import { loadParticipantState } from '@/lib/participant-server';
 import { progressOf } from '@/lib/progress';
-import type { ParticipantState } from '@/lib/types';
 import BreakSelector from './BreakSelector';
 
 export const metadata: Metadata = { title: 'Choose a break' };
 export const dynamic = 'force-dynamic';
 
 export default async function SelectPage() {
-  const state = await loadParticipantState<ParticipantState>();
+  const { state } = await loadParticipantState();
   if (!state) redirect('/register');
   const { active, recommended } = progressOf(state);
   if (active) redirect(`/session/${active.id}`);

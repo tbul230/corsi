@@ -32,7 +32,7 @@ export interface ParticipantInfo {
   id: string;
   first_name: string;
   last_name: string;
-  access_code: string;
+  email: string;
   assigned_order: Condition[];
   is_test: boolean;
   experiment_completed: boolean;

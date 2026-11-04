@@ -1,31 +1,10 @@
 import 'server-only';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { rpcClient } from './supabase/rpc';
 import { mapDbError } from './errors';
+import { ExperimentError, getParticipantState } from './server/experiment';
+import { getSessionUser, type SessionUser } from './server/session';
 
-export const PARTICIPANT_COOKIE = 'corsi_participant';
-const ONE_YEAR = 60 * 60 * 24 * 365;
-
-export async function getParticipantToken() {
-  return (await cookies()).get(PARTICIPANT_COOKIE)?.value ?? null;
-}
-
-export async function setParticipantToken(token: string) {
-  (await cookies()).set(PARTICIPANT_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: ONE_YEAR
-  });
-}
-
-export async function clearParticipantToken() {
-  (await cookies()).delete(PARTICIPANT_COOKIE);
-}
-
-export class RpcError extends Error {
+export class ApiFailure extends Error {
   constructor(
     public code: string,
     public status: number,
@@ -35,36 +14,34 @@ export class RpcError extends Error {
   }
 }
 
-/** Calls a database RPC function and throws a mapped RpcError on failure. */
-export async function callRpc<T>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
-  const { data, error } = await rpcClient().rpc(fn, args);
-  if (error) {
-    const mapped = mapDbError(error.message);
-    if (mapped.code === 'SERVER_ERROR') console.error(`[rpc ${fn}]`, error);
-    throw new RpcError(mapped.code, mapped.status, mapped.message);
-  }
-  return data as T;
-}
-
+/** Converts experiment errors into JSON responses with participant-friendly messages. */
 export function errorResponse(err: unknown) {
-  if (err instanceof RpcError) {
-    return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+  if (err instanceof ExperimentError || err instanceof ApiFailure) {
+    const code = err instanceof ExperimentError ? err.code : err.code;
+    const mapped = mapDbError(code);
+    const status = err instanceof ApiFailure ? err.status : mapped.status;
+    const message = err instanceof ApiFailure ? err.message : mapped.message;
+    return NextResponse.json({ error: message, code }, { status });
   }
   console.error(err);
-  return NextResponse.json(
-    { error: 'Unexpected server error. Please try again.', code: 'SERVER_ERROR' },
-    { status: 500 }
-  );
+  return NextResponse.json({ error: 'Unexpected server error. Please try again.', code: 'SERVER_ERROR' }, { status: 500 });
 }
 
-/** Server-side state lookup used by participant pages. Returns null when not signed in. */
-export async function loadParticipantState<T>() {
-  const token = await getParticipantToken();
-  if (!token) return null;
-  try {
-    return await callRpc<T>('get_participant_state', { p_token: token });
-  } catch (e) {
-    if (e instanceof RpcError && e.code === 'NOT_AUTHENTICATED') return null;
-    throw e;
-  }
+export async function requireUser(): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user) throw new ApiFailure('NOT_AUTHENTICATED', 401, 'Please sign in with Google to continue.');
+  return user;
+}
+
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!user.isAdmin) throw new ApiFailure('ADMIN_ONLY', 403, 'Administrator access required.');
+  return user;
+}
+
+/** Server-side state lookup used by participant pages. Null = not signed in or not registered. */
+export async function loadParticipantState() {
+  const user = await getSessionUser();
+  if (!user) return { user: null, state: null };
+  return { user, state: await getParticipantState(user.pid) };
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getAdmin } from '@/lib/supabase/server';
-import { loadAdminData } from '@/lib/admin-data';
+import { getSessionUser } from '@/lib/server/session';
+import { getAdminData } from '@/lib/server/experiment';
 import { toCsv } from '@/lib/csv';
 
 export const dynamic = 'force-dynamic';
@@ -8,9 +8,9 @@ export const dynamic = 'force-dynamic';
 const TYPES = ['sessions', 'trials', 'participants', 'break-events'] as const;
 
 export async function GET(req: NextRequest) {
-  const { supabase, user, isAdmin } = await getAdmin();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Not signed in.' }, { status: 401 });
-  if (!isAdmin) return NextResponse.json({ error: 'Administrator access required.' }, { status: 403 });
+  if (!user.isAdmin) return NextResponse.json({ error: 'Administrator access required.' }, { status: 403 });
 
   const type = req.nextUrl.searchParams.get('type') ?? 'sessions';
   if (!TYPES.includes(type as (typeof TYPES)[number])) {
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   const includeTest = req.nextUrl.searchParams.get('include_test') === '1';
-  const all = await loadAdminData(supabase);
+  const all = await getAdminData();
   const testSessionIds = new Set(all.sessions.filter((s) => s.is_test).map((s) => s.id));
   // Admin test-mode runs are excluded from exports unless explicitly requested.
   const participants = includeTest ? all.participants : all.participants.filter((p) => !p.is_test);
@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
 
   if (type === 'participants') {
     csv = toCsv(
-      ['participant_id', 'first_name', 'last_name', 'is_test', 'created_at', 'consent_participation', 'consent_quiet_environment', 'consent_guidelines', 'consented_at', 'assigned_order', 'conditions_completed', 'experiment_completed', 'experiment_completed_at'],
+      ['participant_id', 'first_name', 'last_name', 'email', 'is_test', 'created_at', 'consent_participation', 'consent_quiet_environment', 'consent_guidelines', 'consented_at', 'assigned_order', 'conditions_completed', 'experiment_completed', 'experiment_completed_at'],
       participants.map((p) => [
-        p.id, p.first_name, p.last_name, p.is_test, p.created_at, p.consent_participation, p.consent_quiet_environment, p.consent_guidelines, p.consented_at,
+        p.id, p.first_name, p.last_name, p.email, p.is_test, p.created_at, p.consent_participation, p.consent_quiet_environment, p.consent_guidelines, p.consented_at,
         p.assigned_order.join(' > '),
         sessions.filter((s) => s.participant_id === p.id && s.status === 'completed').length,
         p.experiment_completed, p.experiment_completed_at

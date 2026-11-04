@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ResultsCharts from '@/components/ResultsCharts';
 import { Alert, Eyebrow, Stat, StatusPill } from '@/components/ui';
@@ -8,7 +8,6 @@ import { ConditionIcon } from '@/components/icons';
 import { CONDITIONS, CONDITION_INFO, type Condition } from '@/lib/constants';
 import { formatDateTime, formatDuration, formatPct } from '@/lib/format';
 import type { ResultRow } from '@/lib/stats';
-import { browserClient } from '@/lib/supabase/browser';
 import type { AdminData, AdminSession } from '@/lib/admin-data';
 import SignOutButton from './SignOutButton';
 
@@ -42,13 +41,15 @@ function useDeleter() {
         : `Permanently delete this attempt (${label}) and its trials? The participant will be able to do this condition again.`;
     if (!confirm(`${what}\n\nThis cannot be undone. A copy is kept in the deletion log.`)) return false;
     setBusy(id);
-    const { error } =
-      kind === 'participant'
-        ? await browserClient().rpc('admin_delete_participant', { p_participant: id })
-        : await browserClient().rpc('admin_delete_session', { p_session: id });
+    const res = await fetch('/api/admin/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: kind === 'participant' ? 'delete-participant' : 'delete-session', id })
+    });
     setBusy(null);
-    if (error) {
-      alert(`Delete failed: ${error.message}`);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      alert(`Delete failed: ${j.error ?? res.statusText}`);
       return false;
     }
     router.refresh();
@@ -228,7 +229,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
                   <tr>
                     <Th>Name</Th>
                     <Th>Registered</Th>
-                    <Th>Access code</Th>
+                    <Th>Google account</Th>
                     {CONDITIONS.map((c) => (
                       <Th key={c} right>{CONDITION_INFO[c].short}</Th>
                     ))}
@@ -246,7 +247,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
                           {p.is_test ? <span className="ml-2 rounded-full bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-100">Test</span> : null}
                         </Td>
                         <Td>{formatDateTime(p.created_at)}</Td>
-                        <Td mono>{p.access_code}</Td>
+                        <Td>{p.email}</Td>
                         {CONDITIONS.map((c) => {
                           const s = ps.find((x) => x.condition === c);
                           return (
@@ -448,7 +449,7 @@ function ParticipantDetail({
           <p>Consent (all three): {p.consent_participation && p.consent_quiet_environment && p.consent_guidelines ? 'Yes' : 'No'} · {formatDateTime(p.consented_at)}</p>
           <p>Assigned (counterbalanced) order: {p.assigned_order.map((c) => CONDITION_INFO[c as Condition].short).join(' → ')}</p>
           <p>Actual order: {ps.map((s) => CONDITION_INFO[s.condition].short).join(' → ') || '—'}</p>
-          <p>Access code: <span className="font-mono text-ink">{p.access_code}</span></p>
+          <p>Google account: <span className="text-ink">{p.email}</span></p>
           <p>Experiment completed: {p.experiment_completed ? formatDateTime(p.experiment_completed_at) : 'No'}</p>
         </div>
       </div>
@@ -552,27 +553,30 @@ function ParticipantDetail({
 }
 
 function ExportPanel() {
+  const router = useRouter();
   const [withTest, setWithTest] = useState(false);
-  const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
-  const [msg, setMsg] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
+  const [starting, setStarting] = useState(false);
 
-  async function changePassword(e: FormEvent) {
-    e.preventDefault();
-    if (pw.length < 12) return setMsg({ tone: 'error', text: 'Use at least 12 characters.' });
-    if (pw !== pw2) return setMsg({ tone: 'error', text: 'Passwords do not match.' });
-    const { error } = await browserClient().auth.updateUser({ password: pw });
-    setMsg(error ? { tone: 'error', text: error.message } : { tone: 'success', text: 'Password updated.' });
-    if (!error) {
-      setPw('');
-      setPw2('');
+  async function startTestRun() {
+    setStarting(true);
+    const res = await fetch('/api/admin/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'start-test' })
+    });
+    if (res.ok) {
+      router.push('/dashboard');
+      router.refresh();
+    } else {
+      setStarting(false);
+      alert('Could not start a test run.');
     }
   }
 
   const exports: [string, string, string][] = [
     ['sessions', 'Sessions', 'One row per participant × condition: all timestamps and scores.'],
     ['trials', 'Trials', 'Every trial: sequence, response, correctness, response time.'],
-    ['participants', 'Participants', 'Names, consent, counterbalanced order, completion.'],
+    ['participants', 'Participants', 'Names, Google account, consent, counterbalanced order, completion.'],
     ['break-events', 'Break events', 'Page opened/closed and tab hidden/visible log.']
   ];
   return (
@@ -595,13 +599,20 @@ function ExportPanel() {
           ))}
         </div>
       </div>
-      <form onSubmit={changePassword} className="glass space-y-3 rounded-2xl p-6">
-        <h2 className="text-lg font-semibold">Change administrator password</h2>
-        <input type="password" className="input" placeholder="New password (12+ characters)" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} />
-        <input type="password" className="input" placeholder="Repeat new password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
-        {msg ? <Alert tone={msg.tone}>{msg.text}</Alert> : null}
-        <button className="btn btn-primary">Update password</button>
-      </form>
+      <div className="glass space-y-3 rounded-2xl p-6">
+        <h2 className="text-lg font-semibold">Admin test mode</h2>
+        <p className="text-sm text-ink-2">
+          Try the full experiment as a throw-away “Admin Test” participant. You can skip the 15-minute break and redo
+          any condition. Test runs never count in results, charts, statistics or exports.
+        </p>
+        <button className="btn btn-primary" onClick={startTestRun} disabled={starting} data-testid="start-test-run">
+          {starting ? 'Starting…' : 'Start a test run'}
+        </button>
+        <p className="text-xs text-ink-3">
+          Administrators are the Google accounts listed in the ADMIN_EMAILS setting on Vercel. They sign in with Google;
+          there is no separate password.
+        </p>
+      </div>
     </div>
   );
 }

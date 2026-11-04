@@ -69,12 +69,12 @@ export default function MethodologyPage() {
 
       <Section id="procedure" title="Procedure (per condition)">
         <ol className="list-decimal space-y-1.5 pl-5">
-          <li>Registration with real first and last name (first visit only) and three consent agreements.</li>
+          <li>Google sign-in, then registration with real first and last name (first visit only) and three consent agreements.</li>
           <li>Selection of one of the remaining break conditions; standardised written instructions are shown.</li>
           <li>
             A {BREAK_SECONDS / 60}-minute break. The start and end times are fixed by the server when the break begins;
             the countdown is computed from those timestamps, so it is accurate after refreshing, switching tabs or
-            closing the browser, and it cannot be paused, reset, shortened or skipped. The database rejects any attempt
+            closing the browser, and it cannot be paused, reset, shortened or skipped. The server rejects any attempt
             to start the test before the break has ended.
           </li>
           <li>
@@ -113,7 +113,7 @@ export default function MethodologyPage() {
         <p>
           <strong>Scoring:</strong> Corsi span = the longest sequence length reproduced correctly (0 if none). Total
           score = span × number of correct trials. Accuracy = correct trials ÷ total trials. All scores are computed by
-          the database from the stored trial records, not by the browser.
+          the server from the stored trial records, not by the browser.
         </p>
       </Section>
 
@@ -130,9 +130,9 @@ export default function MethodologyPage() {
 
       <Section id="integrity" title="Integrity safeguards">
         <ul className="list-disc space-y-1 pl-5">
-          <li>A database UNIQUE constraint on (participant, break condition): a condition can never be repeated, from any tab, browser or direct API call.</li>
+          <li>Every participant signs in with Google, and each participant has exactly one record per break condition (enforced in a server-side database transaction), so a condition can never be repeated from any tab, browser or direct API call.</li>
           <li>Only one condition can be in progress at a time.</li>
-          <li>Completed sessions and trial records are write-protected by database triggers — results cannot be edited or deleted.</li>
+          <li>The database cannot be accessed from browsers at all; completed results are never modified, and only researchers can delete data (every deletion is logged).</li>
           <li>Researchers can try the procedure in a separate admin test mode (break can be skipped, conditions redone). Those runs are flagged as tests and excluded from every result, chart and export.</li>
           <li>Timestamps are recorded for registration, consent, break start, break end, break completion, test start, every trial and test completion.</li>
           <li>Leaving the break page (closing/refreshing the tab) is logged as an interruption; switching to other apps or tabs is logged separately. If a test is interrupted mid-trial, the unanswered sequence is discarded, logged, and a new sequence of the same length is shown.</li>

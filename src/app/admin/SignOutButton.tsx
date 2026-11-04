@@ -1,19 +1,23 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { browserClient } from '@/lib/supabase/browser';
+import { useState } from 'react';
+import { signOutEverywhere } from '@/lib/firebase/client';
 
-export default function SignOutButton() {
+export default function SignOutButton({ label = 'Sign out' }: { label?: string }) {
   const router = useRouter();
+  const [busy, setBusy] = useState(false);
   return (
     <button
       className="btn btn-glass text-sm"
+      disabled={busy}
       onClick={async () => {
-        await browserClient().auth.signOut();
-        router.replace('/admin/login');
+        setBusy(true);
+        await signOutEverywhere();
+        router.push('/');
         router.refresh();
       }}>
-      Sign out
+      {busy ? 'Signing out…' : label}
     </button>
   );
 }

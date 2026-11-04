@@ -1,17 +1,22 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { Container } from '@/components/ui';
+import { loadParticipantState } from '@/lib/participant-server';
 import RegisterFlow from './RegisterFlow';
 
 export const metadata: Metadata = { title: 'Register' };
+export const dynamic = 'force-dynamic';
 
 const EXPECT: [string, string][] = [
-  ['Your name', 'Used only to link your three sessions together.'],
+  ['Sign in with Google', 'Keeps your three sessions linked to you on any device.'],
+  ['Confirm your name', 'Your real first and last name.'],
   ['Three agreements', 'Participation, a quiet space, and honest effort.'],
-  ['An access code', 'Lets you continue later on any device.'],
   ['Then choose a break', 'Video game, YouTube, or no screens — 15 minutes.']
 ];
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const { user, state } = await loadParticipantState();
+  if (user && state) redirect('/dashboard');
   return (
     <Container className="py-8 sm:py-12 lg:py-16">
       <div className="grid gap-10 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.3fr)] lg:gap-16 xl:gap-24">
@@ -36,7 +41,7 @@ export default function RegisterPage() {
           </div>
         </aside>
         <div className="min-w-0 lg:max-w-2xl">
-          <RegisterFlow />
+          <RegisterFlow user={user ? { email: user.email, name: user.name } : null} />
         </div>
       </div>
     </Container>

@@ -8,19 +8,19 @@ A research web app that measures **visuospatial short-term memory (Corsi span)**
 | ▶️ YouTube Break | Watch YouTube |
 | ☕ No-Screen Break | Rest without any electronic screens |
 
-Every participant completes each condition **exactly once**, in any (counterbalanced) order. The **break always comes first**, followed immediately by the Corsi test, and every result is saved to Supabase and charted live.
+Every participant completes each condition **exactly once**, in any (counterbalanced) order. The **break always comes first**, followed immediately by the Corsi test, and every result is saved to Firebase (Cloud Firestore) and charted live.
 
 > This is an experimental implementation of a Corsi-style task. It is **not** a validated clinical or diagnostic assessment.
 
 ## Participant flow
 
-1. **Start** → registration with real first + last name (duplicates blocked; a 6-character access code lets people resume on another device)
-2. **Consent** → three required agreements + plain-language explanation of what is collected, who sees it and how it is used
+1. **Start** → **Sign in with Google** (Firebase Authentication). Everyone must sign in; there are no passwords or access codes.
+2. **Confirm name** (pre-filled from Google; real first + last name, duplicates blocked) and **consent** (three required agreements and a plain-language explanation of what is collected, who sees it and how it is used)
 3. **Choose a break** → three cards; completed conditions are disabled with a COMPLETED badge and the previous score
-4. **15-minute break** → a real countdown computed from server timestamps (survives refresh, background tabs and closing the browser; cannot be paused, reset or skipped; database refuses an early test)
+4. **15-minute break** → a real countdown computed from server timestamps (survives refresh, background tabs and closing the browser; cannot be paused, reset or skipped; the server refuses an early test)
 5. **Corsi test** → 3×3 grid, server-generated sequences, fixed timing, stopping rule
 6. **Results** → span, longest correct sequence, correct/incorrect trials, accuracy, test and break duration, completion time, trial-by-trial table
-7. **Dashboard** → progress (e.g. *2 of 3 conditions completed*), resume an unfinished break, completion message after all three
+7. **Dashboard** → progress (e.g. *2 of 3 conditions completed*), resume an unfinished break, completion message after all three. Signing in with the same Google account on any device continues where you left off.
 
 ## Corsi task parameters
 
@@ -45,8 +45,8 @@ Every participant completes each condition **exactly once**, in any (counterbala
 | `/session/[id]` | Break timer → Corsi test → results (state-driven, refresh-safe) |
 | `/results` | Public, anonymised live charts (auto-refresh every 10 s) |
 | `/methodology` | Full procedure for reporting/replication |
-| `/admin` | Researcher dashboard (Supabase Auth, admins only) |
-| `/test-mode` | Admin test mode (admin code; results not counted) |
+| `/admin` | Researcher dashboard (Google sign-in, admin emails only) |
+| `/admin/login` | Google sign-in for researchers |
 
 Charts: average span by break type (with *n*), individual participant comparison (grouped bars), accuracy comparison, overall stats, and a practice-effect check (span by completion order). Missing conditions are never plotted as zero. Filters for condition and participant, plus a table view.
 
@@ -54,43 +54,40 @@ Admin dashboard: all participants, per-participant detail with exact break/test 
 
 ## Admin tools
 
-**Test mode** (`/test-mode`, linked from the registration page): researchers enter the admin code to get a throw-away "Admin Test ###" participant without registering. In test mode the break timer has a **Skip break** button and every condition can be **redone**. Test runs are flagged `is_test` and are excluded from the public results, charts, admin statistics and CSV exports (admins can show them with a toggle). Only a bcrypt hash of the admin code is stored, in `public.app_secrets`. To set or change it, run this in the Supabase SQL editor:
+**Administrators** are the Google accounts listed in the `ADMIN_EMAILS` environment variable. They sign in with Google at `/admin` like everyone else and are recognised automatically, with no password and no code.
 
-```sql
-insert into public.app_secrets (key, value_hash)
-values ('admin_test_code', extensions.crypt('NEW-CODE', extensions.gen_salt('bf')))
-on conflict (key) do update set value_hash = excluded.value_hash, updated_at = now();
-```
+**Test mode**: in the admin dashboard (*Export & account* → *Start a test run*), an admin becomes a throw-away "Admin Test ###" participant. Breaks can be skipped and conditions redone; test runs are flagged `is_test` and excluded from the public results, charts, statistics and CSV exports (admins can show them with a toggle).
 
-**Deleting data**: signed-in admins can delete a whole participant (with all attempts and trials) or a single attempt from the admin dashboard. Deletions run through `admin_delete_participant` / `admin_delete_session`, which check admin rights in the database. Each deletion is written to the deletion log with a full JSON copy of what was removed. Nobody else can delete or edit results.
+**Deleting data**: admins can delete a participant (with all attempts and trials) or a single attempt. Every deletion is written to `deletion_log` with a JSON snapshot of what was removed.
 
 ## Architecture & data integrity
 
 - **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Recharts**, deployed on **Vercel**.
-- **Supabase Postgres** holds everything. Schema, RLS and API live in [`supabase/migrations`](supabase/migrations).
-- Participants never touch tables directly. The Next.js server calls `SECURITY DEFINER` Postgres functions with the publishable key and an opaque participant token kept in an **httpOnly cookie** (stored only as a SHA-256 hash in the database).
-- All rules are enforced **in the database**, so they hold for any tab, browser or direct API call:
-  - `UNIQUE (participant_id, condition)` – a condition can never be repeated
+- **Firebase** project `corsitask`: **Authentication** (Google sign-in) and **Cloud Firestore**.
+- The browser only signs in with Google. It sends the Firebase ID token once to `/api/auth/session`, where the server verifies it with the **Firebase Admin SDK** (Google provider + verified email required) and issues a signed, httpOnly session cookie.
+- **All reads and writes go through the Next.js server using the Admin SDK.** `firestore.rules` denies every client read/write, so nobody can touch the database directly from a browser.
+- All experiment rules run on the server inside Firestore transactions (`src/lib/server/experiment.ts`):
+  - one session document per participant per condition (`sessions/{participant}__{condition}`), so a condition can never be repeated
   - only one condition in progress at a time
-  - break end = start + 15 min (CHECK constraint); `next_trial` refuses to run before it
-  - sequences, correctness and all scores are computed server-side
-  - triggers make completed sessions and trial rows immutable (no edits; deletes only through the audited admin functions)
-- **Admins** sign in with Supabase Auth; Row Level Security only lets users listed in `public.admins` read data. No service-role key is used anywhere.
+  - break end = start + 15 min; the test is refused before then
+  - sequences, correctness and all scores are computed by the server
+  - completed results are never modified; only admins can delete, and every deletion is logged
+
+Firestore layout: `participants/{uid}`, `names/{nameKey}` (unique names), `sessions/{id}` with `trials/` and `events/` sub-collections, `deletion_log/`, `meta/counters` (counterbalancing).
 
 ## Local development
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in your Supabase URL + publishable key
+cp .env.example .env.local      # fill in the values
 npm run dev
 ```
 
-Apply the migration in `supabase/migrations/` to your Supabase project (SQL editor or `supabase db push`).
+Run against the Firestore emulator (no credentials needed):
 
-Make a user an administrator (after creating them in Supabase → Authentication → Users):
-
-```sql
-insert into public.admins (user_id) select id from auth.users where email = 'you@example.com';
+```bash
+npx firebase emulators:start --only firestore
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 SESSION_SECRET=any-32-character-string-here npm run dev
 ```
 
 Checks:
@@ -99,11 +96,18 @@ Checks:
 npm run typecheck
 npm test
 npm run build
+# full browser flow (mints a session cookie instead of the Google popup)
+BASE_URL=http://localhost:3000 SESSION_SECRET=... ADMIN_EMAIL=you@example.com BACKDATE=1 \
+  FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node tests/e2e/flow.mjs
 ```
+
+Deploy Firestore rules and Auth config: `npx firebase deploy --only firestore,auth`.
 
 ## Environment variables
 
 | Name | Notes |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable (anon) key – safe for the browser; all access is mediated by token-checked functions and RLS |
+| `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase web app config (public) |
+| `FIREBASE_SERVICE_ACCOUNT` | **Secret.** Service-account JSON from Firebase console → Project settings → Service accounts → *Generate new private key* (raw JSON or base64) |
+| `SESSION_SECRET` | **Secret.** Random string (32+ chars) that signs session cookies |
+| `ADMIN_EMAILS` | Comma-separated Google accounts with admin access |

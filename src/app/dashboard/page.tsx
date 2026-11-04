@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { Card, Container, PageHeader, StatusPill } from '@/components/ui';
 import { ArrowIcon, CheckIcon, ConditionIcon } from '@/components/icons';
 import LogoutButton from '@/components/LogoutButton';
+import CountUp from '@/components/CountUp';
 import RedoButton from '@/components/RedoButton';
 import TestModeBanner from '@/components/TestModeBanner';
 import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
@@ -34,8 +35,8 @@ export default async function DashboardPage() {
 
       <div className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
         {/* Conditions */}
-        <section className="glass self-start overflow-hidden rounded-2xl">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
+        <section className="glass fade-up self-start overflow-hidden rounded-2xl">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 px-5 py-4 sm:px-6">
             <div>
               <h2 className="font-semibold">Break conditions</h2>
               <p className="text-sm text-ink-2" data-testid="progress-text">
@@ -48,13 +49,13 @@ export default async function DashboardPage() {
                 return (
                   <span
                     key={c}
-                    className={`h-1.5 flex-1 rounded-full ${st === 'completed' ? 'bg-accent' : st === 'in_progress' ? 'bg-amber-300/70' : 'bg-navy-700'}`}
+                    className={`h-1.5 flex-1 rounded-full ${st === 'completed' ? 'grow-x bg-gradient-to-r from-sky-300 to-accent shadow-[0_0_12px_rgba(77,141,255,0.7)]' : st === 'in_progress' ? 'shimmer bg-amber-300/70' : 'bg-white/10'}`}
                   />
                 );
               })}
             </div>
           </div>
-          <ul className="divide-y divide-line">
+          <ul className="stagger divide-y divide-white/8">
             {CONDITIONS.map((c) => {
               const s = byCondition.get(c);
               const status = conditionStatus(s);
@@ -62,9 +63,9 @@ export default async function DashboardPage() {
                 <li
                   key={c}
                   data-testid={`row-${c}`}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 sm:px-6">
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-5 py-4 transition-colors duration-300 hover:bg-white/[0.03] sm:px-6">
                   <span
-                    className="grid h-10 w-10 place-items-center rounded-lg border border-line bg-navy-850"
+                    className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]"
                     style={{ color: CONDITION_INFO[c].accent }}>
                     <ConditionIcon condition={c} className="h-5 w-5" />
                   </span>
@@ -83,7 +84,7 @@ export default async function DashboardPage() {
                     <p className="text-xs text-ink-3">Corsi span</p>
                     {status === 'completed' ? (
                       <Link href={`/session/${s!.id}`} className="text-2xl font-semibold tabular-nums hover:text-accent">
-                        {s!.corsi_span}
+                        <CountUp value={s!.corsi_span ?? 0} />
                       </Link>
                     ) : (
                       <p className="text-2xl font-semibold text-ink-3">--</p>
@@ -96,10 +97,10 @@ export default async function DashboardPage() {
         </section>
 
         {/* Next step + code */}
-        <div className="flex flex-col gap-6">
+        <div className="stagger flex flex-col gap-6">
           {done ? (
             <Card>
-              <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
+              <div className="pop grid h-10 w-10 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
                 <CheckIcon className="h-5 w-5" />
               </div>
               <h2 className="mt-4 text-xl font-semibold">Experiment complete. Thank you!</h2>

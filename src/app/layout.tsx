@@ -3,6 +3,7 @@ import Link from 'next/link';
 import './globals.css';
 import { GridIcon } from '@/components/icons';
 import NavLinks from '@/components/NavLinks';
+import GlassPointer from '@/components/GlassPointer';
 
 export const metadata: Metadata = {
   title: {
@@ -24,11 +25,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="flex min-h-dvh flex-col">
-        <div className="ambient" aria-hidden />
+        <div className="ambient" aria-hidden>
+          <span />
+        </div>
+        <GlassPointer />
         <header className="header-bar sticky top-0 z-30">
           <nav className="mx-auto flex h-14 w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
-            <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-accent/15 text-accent">
+            <Link href="/" className="group flex items-center gap-2.5 font-semibold tracking-tight">
+              <span className="grid h-7 w-7 place-items-center rounded-lg border border-white/15 bg-white/10 text-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-transform duration-500 group-hover:rotate-90">
                 <GridIcon className="h-4.5 w-4.5" />
               </span>
               <span className="hidden text-[15px] min-[400px]:inline">Corsi Experiment</span>
@@ -37,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </nav>
         </header>
         <main className="flex flex-1 flex-col">{children}</main>
-        <footer className="border-t border-line">
+        <footer className="border-t border-white/8 bg-navy-950/40 backdrop-blur-md">
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-2 px-4 py-6 text-xs text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
             <p>An experimental Corsi-style block-tapping task for research. Not a clinical or diagnostic assessment.</p>
             <p className="flex gap-4">

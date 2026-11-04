@@ -276,6 +276,7 @@ async function playTest(page, { correctUntil = 4 }) {
   check('incorrect answers recognised', trials.slice(3).every((t) => /Incorrect/.test(t.feedback)));
 
   await page.waitForSelector('[data-testid=results]', { timeout: 20000 });
+  await page.waitForTimeout(1600); // let the score count-up animation finish
   const span = (await page.textContent('[data-testid=final-span]')).trim();
   check('stopping rule: ended after 2 misses at length 5', trials.length === 5);
   check('final Corsi span = 4', span === '4', span);
@@ -287,6 +288,7 @@ async function playTest(page, { correctUntil = 4 }) {
   // ---------- Persistence & duplicates ----------
   await page.reload();
   await page.waitForSelector('[data-testid=results]');
+  await page.waitForTimeout(1600);
   check('results survive refresh', (await page.textContent('[data-testid=final-span]')).trim() === '4');
   const dupSubmit = await post(page, 'submit-trial', { sessionId, response: [0, 1], responseTimeMs: 500 });
   check('duplicate submission blocked', dupSubmit.status === 409, dupSubmit.json.code);
@@ -297,6 +299,7 @@ async function playTest(page, { correctUntil = 4 }) {
 
   await page.click('[data-testid=back-dashboard]');
   await page.waitForURL('**/dashboard');
+  await page.waitForTimeout(1500);
   check('dashboard updated to 1 of 3', (await page.textContent('[data-testid=progress-text]')).includes('1 of 3'));
   check('dashboard shows score 4', (await page.textContent('[data-testid=row-video_game]')).includes('4'));
   await page.goto(`${BASE}/select`);

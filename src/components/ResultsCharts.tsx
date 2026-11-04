@@ -195,7 +195,7 @@ export default function ResultsCharts({
                     return [v == null ? 'No data' : `${v} blocks${p.sd != null ? ` (SD ${p.sd})` : ''} · n=${p.n}`, 'Mean span'];
                   }}
                 />
-                <Bar dataKey="meanSpan" radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={2} isAnimationActive={false}>
+                <Bar dataKey="meanSpan" radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={2} animationDuration={900} animationEasing="ease-out">
                   {conditionData.map((d) => (
                     <Cell key={d.condition} fill={d.fill} />
                   ))}
@@ -222,7 +222,7 @@ export default function ResultsCharts({
                     'Mean accuracy'
                   ]}
                 />
-                <Bar dataKey="meanAccuracy" radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={2} isAnimationActive={false}>
+                <Bar dataKey="meanAccuracy" radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={2} animationDuration={900} animationEasing="ease-out">
                   {conditionData.map((d) => (
                     <Cell key={d.condition} fill={d.fill} />
                   ))}
@@ -259,7 +259,7 @@ export default function ResultsCharts({
                       name={CONDITION_INFO[c].short}
                       fill={CONDITION_INFO[c].accent}
                       radius={[4, 4, 0, 0]}
-                      isAnimationActive={false}
+                      animationDuration={900} animationEasing="ease-out"
                     />
                   ))}
                 </BarChart>
@@ -282,7 +282,7 @@ export default function ResultsCharts({
               <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} />
               <YAxis tick={AXIS} axisLine={false} tickLine={false} domain={[0, 9]} ticks={[0, 3, 6, 9]} />
               <Tooltip {...tooltipStyle} formatter={(v) => [v == null ? 'No data' : `${v} blocks`, 'Mean span']} />
-              <Bar dataKey="meanSpan" fill="#8ec5ff" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+              <Bar dataKey="meanSpan" fill="#8ec5ff" radius={[4, 4, 0, 0]} animationDuration={900} animationEasing="ease-out">
                 <LabelList dataKey="meanSpan" position="top" fill="#f3f7ff" fontSize={12} formatter={(v) => (v == null ? 'no data' : String(v))} />
               </Bar>
             </BarChart>

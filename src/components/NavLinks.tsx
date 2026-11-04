@@ -20,7 +20,7 @@ export default function NavLinks() {
             key={href}
             href={href}
             aria-current={active ? 'page' : undefined}
-            className={`whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors sm:px-3 ${active ? 'bg-navy-800 text-ink' : 'text-ink-2 hover:text-ink'}`}>
+            className={`whitespace-nowrap rounded-lg px-2.5 py-1.5 transition-all duration-300 sm:px-3 ${active ? 'bg-white/10 text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]' : 'text-ink-2 hover:bg-white/5 hover:text-ink'}`}>
             {label}
           </Link>
         );

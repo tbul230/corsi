@@ -156,17 +156,17 @@ export default function CorsiTest({
       ['Grow', 'Each correct answer adds one block. Two misses at the same length end the test.']
     ];
     return (
-      <div className="fade-up grid gap-6 lg:min-h-[calc(100dvh-14rem)] lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
+      <div className="stagger grid gap-6 lg:min-h-[calc(100dvh-14rem)] lg:grid-cols-[minmax(0,1fr)_420px] lg:items-stretch">
         <section className="glass rounded-2xl p-6 sm:p-8 lg:p-10">
           {!resumed ? (
-            <p className="inline-flex items-center gap-2 rounded-md bg-emerald-500/12 px-2.5 py-1 text-sm font-medium text-emerald-300">
+            <p className="pop inline-flex items-center gap-2 rounded-lg bg-emerald-500/12 px-2.5 py-1 text-sm font-medium text-emerald-300">
               <CheckIcon className="h-4 w-4" /> {CONDITION_INFO[session.condition].title} complete
             </p>
           ) : null}
           <h1 className="mt-4 text-[1.65rem] font-semibold sm:text-3xl lg:text-4xl">
             {resumed ? 'Resume your Corsi test' : 'Corsi Block-Tapping Test'}
           </h1>
-          <ol className="mt-6 divide-y divide-line border-y border-line">
+          <ol className="stagger mt-6 divide-y divide-white/8 border-y border-white/8">
             {steps.map(([t, d], i) => (
               <li key={t} className="flex gap-4 py-4">
                 <span className="mt-0.5 font-mono text-sm text-ink-3">0{i + 1}</span>
@@ -181,7 +181,7 @@ export default function CorsiTest({
         <aside className="glass flex flex-col justify-center rounded-2xl p-6 sm:p-8">
           <div className="mx-auto grid w-40 grid-cols-3 gap-1.5" aria-hidden>
             {Array.from({ length: 9 }, (_, i) => (
-              <span key={i} className="corsi-block" data-lit={i === 4 ? 'true' : undefined} />
+              <span key={i} className={`corsi-block ${i === 0 || i === 4 || i === 8 ? 'demo-lit' : ''}`} style={{ animationDelay: `${(i / 4) * 1.2}s` }} />
             ))}
           </div>
           <p className="mt-6 text-center text-sm text-ink-2">

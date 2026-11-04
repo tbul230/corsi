@@ -171,9 +171,14 @@ export default function BreakTimer({
   return (
     <div className="fade-up grid gap-6 lg:min-h-[calc(100dvh-14rem)] lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
       {/* Timer — the main element */}
-      <section className="glass flex flex-col items-center justify-center rounded-2xl px-5 py-10 text-center sm:px-10 sm:py-14 lg:py-16">
+      <section className="glass relative flex flex-col items-center justify-center overflow-hidden rounded-3xl px-5 py-10 text-center sm:px-10 sm:py-14 lg:py-16">
+        <div
+          aria-hidden
+          className="breathe pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+          style={{ background: `radial-gradient(circle, ${info.accent}55, transparent 65%)` }}
+        />
         <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-navy-850" style={{ color: info.accent }}>
+          <span className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]" style={{ color: info.accent }}>
             <ConditionIcon condition={session.condition} className="h-5 w-5" />
           </span>
           <h1 className="text-base font-semibold sm:text-lg" data-testid="break-title">
@@ -183,13 +188,13 @@ export default function BreakTimer({
 
         {finished ? (
           <div className="py-8" data-testid="break-finished">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
+            <div className="pop mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/15 text-emerald-300 shadow-[0_0_40px_rgba(16,185,129,0.45)]">
               <CheckIcon className="h-8 w-8" />
             </div>
             <p className="mt-5 text-2xl font-semibold sm:text-3xl">Break complete</p>
             <p className="mt-2 text-ink-2">Please return to your seat. The Corsi test is about to begin…</p>
             <div className="mx-auto mt-6 h-1 w-40 overflow-hidden rounded-full bg-navy-700">
-              <div className="h-full animate-[grow_3.5s_linear_forwards] rounded-full bg-accent" style={{ width: 0 }} />
+              <div className="h-full animate-[grow_3.5s_linear_forwards] rounded-full bg-gradient-to-r from-sky-300 to-accent" style={{ width: 0 }} />
             </div>
             <style>{`@keyframes grow{to{width:100%}}`}</style>
           </div>
@@ -202,17 +207,20 @@ export default function BreakTimer({
               role="timer"
               aria-live="off"
               data-testid="timer">
-              {formatClock(secondsLeft)}
+              {formatClock(secondsLeft).slice(0, 3)}
+              <span key={secondsLeft} className="tick">
+                {formatClock(secondsLeft).slice(3)}
+              </span>
             </p>
             <div
-              className="mt-8 h-2 w-full max-w-lg overflow-hidden rounded-full bg-navy-700 sm:mt-10"
+              className="mt-8 h-2.5 w-full max-w-lg overflow-hidden rounded-full bg-white/10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)] sm:mt-10"
               role="progressbar"
               aria-label="Break time remaining"
               aria-valuemin={0}
               aria-valuemax={BREAK_SECONDS}
               aria-valuenow={secondsLeft}>
               <div
-                className="h-full rounded-full bg-accent transition-[width] duration-300 ease-linear"
+                className="shimmer h-full rounded-full bg-gradient-to-r from-sky-300 via-accent to-[#3a78ec] shadow-[0_0_16px_rgba(77,141,255,0.8)] transition-[width] duration-1000 ease-linear"
                 style={{ width: `${fraction * 100}%` }}
                 data-testid="progress"
               />
@@ -223,7 +231,7 @@ export default function BreakTimer({
       </section>
 
       {/* Instructions */}
-      <aside className="flex flex-col gap-4">
+      <aside className="stagger flex flex-col gap-4">
         {error ? <Alert>{error}</Alert> : null}
 
         {session.is_test && !finished ? (

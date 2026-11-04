@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Stat } from '@/components/ui';
+import CountUp from '@/components/CountUp';
 import RedoButton from '@/components/RedoButton';
 import TestModeBanner from '@/components/TestModeBanner';
 import { ArrowIcon, CheckIcon, ConditionIcon } from '@/components/icons';
@@ -34,16 +35,21 @@ export default function ResultsView({ detail }: { detail: SessionDetail }) {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
-        <section className="glass flex flex-col items-center justify-center rounded-2xl p-6 text-center sm:p-8">
+        <section className="glass fade-up relative flex flex-col items-center justify-center overflow-hidden rounded-3xl p-6 text-center sm:p-8">
+          <div
+            aria-hidden
+            className="breathe pointer-events-none absolute left-1/2 top-1/2 -z-10 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+            style={{ background: `radial-gradient(circle, ${info.accent}66, transparent 65%)` }}
+          />
           <p className="label">Final Corsi span</p>
           <p className="mt-1 text-7xl font-semibold tabular-nums tracking-tight sm:text-8xl" data-testid="final-span">
-            {s.corsi_span}
+            <CountUp value={s.corsi_span ?? 0} duration={1100} />
           </p>
           <p className="mt-2 text-sm text-ink-2">
             longest sequence reproduced correctly
           </p>
         </section>
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:content-start">
+        <section className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4 lg:content-start">
           <Stat label="Longest correct sequence" value={s.max_length_correct ?? '—'} hint="blocks" />
           <Stat label="Correct trials" value={s.correct_trials ?? '—'} />
           <Stat label="Incorrect trials" value={s.incorrect_trials ?? '—'} />

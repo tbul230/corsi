@@ -102,14 +102,14 @@ export default function RegisterFlow() {
   if (step === 'code' && registered) {
     return (
       <Card className="fade-up text-center">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
+        <div className="pop mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-500/15 text-emerald-300">
           <CheckIcon className="h-7 w-7" />
         </div>
         <h1 className="mt-4 text-2xl font-semibold">Welcome, {registered.participant.first_name}!</h1>
         <p className="mt-2 muted">You are registered. Please write down your personal access code:</p>
         <p
           data-testid="access-code"
-          className="mx-auto mt-5 w-fit rounded-xl border border-line-strong bg-navy-950 px-6 py-3 font-mono text-3xl font-semibold tracking-[0.25em]">
+          className="glass-soft fade-up mx-auto mt-5 w-fit rounded-2xl px-6 py-3 font-mono text-3xl font-semibold tracking-[0.25em]">
           {registered.participant.access_code}
         </p>
         <p className="mx-auto mt-4 max-w-md text-sm muted">
@@ -156,14 +156,14 @@ export default function RegisterFlow() {
             </p>
           </div>
         </Card>
-        <fieldset className="space-y-3">
+        <fieldset className="stagger space-y-3">
           <legend className="sr-only">Agreements</legend>
           {CONSENT_ITEMS.map((item, i) => {
             const checked = consent[item.key];
             return (
               <label
                 key={item.key}
-                className={`flex cursor-pointer gap-4 rounded-xl border p-4 transition-colors sm:p-5 ${checked ? 'border-accent bg-accent/8' : 'border-line bg-navy-900 hover:border-line-strong'}`}>
+                className={`glass glass-interactive flex cursor-pointer gap-4 rounded-2xl p-4 sm:p-5 ${checked ? 'glass-selected' : ''}`}>
                 <input
                   type="checkbox"
                   className="peer sr-only"
@@ -173,8 +173,8 @@ export default function RegisterFlow() {
                 />
                 <span
                   aria-hidden
-                  className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border transition peer-focus-visible:ring-2 peer-focus-visible:ring-accent ${checked ? 'border-accent bg-accent text-white' : 'border-line-strong bg-navy-950'}`}>
-                  {checked ? <CheckIcon className="h-4 w-4" /> : null}
+                  className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border transition peer-focus-visible:ring-2 peer-focus-visible:ring-accent ${checked ? 'scale-110 border-accent bg-accent text-white shadow-[0_0_14px_rgba(77,141,255,0.8)]' : 'border-white/25 bg-white/5'} duration-500 [transition-timing-function:var(--ease-spring)]`}>
+                  {checked ? <CheckIcon className="pop h-4 w-4" /> : null}
                 </span>
                 <span>
                   <span className="block text-sm font-semibold">
@@ -209,7 +209,7 @@ export default function RegisterFlow() {
           {mode === 'new' ? 'Participant registration' : 'Continue as a returning participant'}
         </h1>
       </div>
-      <div className="inline-flex rounded-lg border border-line bg-navy-900 p-1 text-sm" role="tablist">
+      <div className="glass-soft inline-flex rounded-xl p-1 text-sm" role="tablist">
         {(['new', 'returning'] as Mode[]).map((m) => (
           <button
             key={m}
@@ -219,7 +219,7 @@ export default function RegisterFlow() {
               setMode(m);
               setError(null);
             }}
-            className={`rounded-md px-3.5 py-1.5 font-medium transition-colors ${mode === m ? 'bg-navy-700 text-ink' : 'text-ink-2 hover:text-ink'}`}>
+            className={`rounded-md px-3.5 py-1.5 font-medium transition-colors ${mode === m ? 'bg-white/12 text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]' : 'text-ink-2 hover:text-ink'}`}>
             {m === 'new' ? 'New participant' : 'Returning participant'}
           </button>
         ))}

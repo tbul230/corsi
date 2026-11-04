@@ -66,7 +66,7 @@ export default function BreakSelector({
 
   return (
     <div className="mt-6 grid gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
-      <div className="grid content-start gap-3 sm:gap-4" role="radiogroup" aria-label="Break condition">
+      <div className="stagger grid content-start gap-3 sm:gap-4" role="radiogroup" aria-label="Break condition">
         {CONDITIONS.map((c) => {
           const info = CONDITION_INFO[c];
           const s = byCondition.get(c);
@@ -85,15 +85,11 @@ export default function BreakSelector({
                 setAck(false);
                 setError(null);
               }}
-              className={`group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 rounded-2xl border p-4 text-left transition-colors sm:p-5 ${
-                completed
-                  ? 'cursor-not-allowed border-line bg-navy-900/50 opacity-60'
-                  : isSelected
-                    ? 'border-accent bg-accent/8'
-                    : 'border-line bg-navy-900 hover:border-line-strong hover:bg-navy-850'
+              className={`glass group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 rounded-2xl p-4 text-left sm:p-5 ${
+                completed ? 'cursor-not-allowed opacity-55 saturate-50' : `glass-interactive ${isSelected ? 'glass-selected' : ''}`
               }`}>
               <span
-                className="grid h-12 w-12 place-items-center rounded-xl border border-line bg-navy-850 sm:h-14 sm:w-14"
+                className={`grid h-12 w-12 place-items-center rounded-xl border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] transition-transform duration-500 [transition-timing-function:var(--ease-spring)] sm:h-14 sm:w-14 ${isSelected ? 'scale-110' : 'group-hover:scale-105'}`}
                 style={{ color: info.accent }}>
                 <ConditionIcon condition={c} className="h-6 w-6 sm:h-7 sm:w-7" />
               </span>
@@ -117,7 +113,14 @@ export default function BreakSelector({
                   <span className="mt-2 hidden text-sm text-ink-3 sm:block">{info.instructions[0]}</span>
                 )}
               </span>
-              <span className="text-right text-sm tabular-nums text-ink-3">15:00</span>
+              <span className="flex flex-col items-end gap-2 text-sm tabular-nums text-ink-3">
+                15:00
+                {isSelected ? (
+                  <span className="pop grid h-6 w-6 place-items-center rounded-full bg-accent text-white shadow-[0_0_16px_rgba(77,141,255,0.8)]">
+                    <CheckIcon className="h-3.5 w-3.5" />
+                  </span>
+                ) : null}
+              </span>
             </button>
           );
         })}
@@ -126,7 +129,7 @@ export default function BreakSelector({
       <div ref={confirmRef} className="scroll-mt-20">
         <div className="glass rounded-2xl p-5 sm:p-6 lg:sticky lg:top-20" data-testid={selected ? 'break-confirm' : undefined}>
           {selected ? (
-            <>
+            <div key={selected} className="fade-up">
               <p className="text-sm font-medium text-accent">Before you start</p>
               <h2 className="mt-1 text-xl font-semibold">{CONDITION_INFO[selected].title}</h2>
               <h3 className="mt-5 text-sm font-semibold">1. Your 15-minute break</h3>
@@ -137,7 +140,7 @@ export default function BreakSelector({
               <div className="mt-2">
                 <Bullets items={TEST_STEPS} />
               </div>
-              <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-navy-950 p-3 text-sm">
+              <label className="glass-soft mt-6 flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm">
                 <input
                   type="checkbox"
                   checked={ack}
@@ -163,9 +166,14 @@ export default function BreakSelector({
                   Cancel
                 </button>
               </div>
-            </>
+            </div>
           ) : (
             <div className="py-6 text-center lg:py-16">
+              <div className="mx-auto mb-4 grid w-24 grid-cols-3 gap-1 opacity-70" aria-hidden>
+                {Array.from({ length: 9 }, (_, i) => (
+                  <span key={i} className={`corsi-block ${i === 2 || i === 4 || i === 6 ? 'demo-lit' : ''}`} style={{ animationDelay: `${(i % 3) * 1.2}s` }} />
+                ))}
+              </div>
               <p className="font-medium">Select a break condition</p>
               <p className="mt-1 text-sm text-ink-3">Its instructions will appear here before you start.</p>
             </div>

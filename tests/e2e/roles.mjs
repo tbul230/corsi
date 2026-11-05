@@ -46,8 +46,8 @@ for (const email of admins) {
 }
 
 const user = await asUser('someone.else@example.com');
-await user.goto(`${BASE}/admin`);
-check('non-admin Google account → access denied page', (await user.textContent('body')).includes('not an administrator'));
+const denied = await user.goto(`${BASE}/admin`);
+check('non-admin Google account: /admin → 403', denied.status() === 403 && (await user.textContent('body')).includes('not on the list of researchers'), String(denied.status()));
 const act = await user.request.post(`${BASE}/api/admin/action`, { data: { action: 'start-test' } });
 check('non-admin cannot start a test run (API)', act.status() === 403);
 const exp = await user.request.get(`${BASE}/api/admin/export?type=sessions`);

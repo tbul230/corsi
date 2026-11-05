@@ -43,7 +43,7 @@ Every participant completes each condition **exactly once**, in any (counterbala
 | `/dashboard` | Participant progress |
 | `/select` | Break-condition cards |
 | `/session/[id]` | Break timer → Corsi test → results (state-driven, refresh-safe) |
-| `/results` | Public, anonymised live charts (auto-refresh every 10 s) |
+| `/results` | Anonymised live charts for signed-in users (auto-refresh every 10 s) |
 | `/methodology` | Full procedure for reporting/replication |
 | `/admin` | Researcher dashboard (Google sign-in, admin emails only) |
 | `/admin/login` | Google sign-in for researchers |
@@ -64,7 +64,10 @@ Admin dashboard: all participants, per-participant detail with exact break/test 
 
 - **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Recharts**, deployed on **Vercel**.
 - **Firebase** project `corsitask`: **Authentication** (Google sign-in) and **Cloud Firestore**.
+- **Google sign-in is the only way in.** No passwords, access codes or admin codes exist anywhere. Signed-out visitors are sent to the Google sign-in button and every API returns 401.
 - The browser only signs in with Google. It sends the Firebase ID token once to `/api/auth/session`, where the server verifies it with the **Firebase Admin SDK** (Google provider + verified email required) and issues a signed, httpOnly session cookie.
+- `src/proxy.ts` guards every `/admin` page and `/api/admin` route before any admin code runs: signed out → Google sign-in (APIs 401); signed in but not in `ADMIN_EMAILS` → 403. The email comes from the verified Firebase ID token (Google provider, `email_verified`), never from the browser.
+- Server failures are logged with a short reference and shown to the user as a specific message (database unavailable, configuration problem, try again), never a generic error.
 - **All reads and writes go through the Next.js server using the Admin SDK.** `firestore.rules` denies every client read/write, so nobody can touch the database directly from a browser.
 - All experiment rules run on the server inside Firestore transactions (`src/lib/server/experiment.ts`):
   - one session document per participant per condition (`sessions/{participant}__{condition}`), so a condition can never be repeated

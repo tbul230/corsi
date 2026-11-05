@@ -23,8 +23,35 @@ export function errorResponse(err: unknown) {
     const message = err instanceof ApiFailure ? err.message : mapped.message;
     return NextResponse.json({ error: message, code }, { status });
   }
-  console.error(err);
-  return NextResponse.json({ error: 'Unexpected server error. Please try again.', code: 'SERVER_ERROR' }, { status: 500 });
+  return NextResponse.json(...describeServerError(err));
+}
+
+/**
+ * Turns infrastructure failures into a specific, honest message for the participant and logs the
+ * real cause (with a short reference) for the research team. Never a generic "unexpected error".
+ */
+export function describeServerError(err: unknown): [{ error: string; code: string; ref: string }, { status: number }] {
+  const ref = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const e = err as { code?: unknown; message?: unknown } | null;
+  const message = String(e?.message ?? err);
+  const grpc = typeof e?.code === 'number' ? e.code : null;
+  console.error(`[corsi ${ref}]`, err);
+  let body: { error: string; code: string };
+  let status = 503;
+  if (/FIREBASE_SERVICE_ACCOUNT|SESSION_SECRET/.test(message)) {
+    body = { code: 'SERVER_NOT_CONFIGURED', error: 'The study server is missing part of its configuration, so nothing could be saved. The research team needs to fix this — please try again later.' };
+  } else if (grpc === 7 || grpc === 16 || /PERMISSION_DENIED|UNAUTHENTICATED|invalid_grant/i.test(message)) {
+    body = { code: 'DATABASE_AUTH_FAILED', error: 'The study server could not log in to its database, so nothing could be saved. The research team needs to fix this — please try again later.' };
+  } else if (grpc === 14 || grpc === 4 || /UNAVAILABLE|DEADLINE_EXCEEDED|ETIMEDOUT|ECONNRESET|fetch failed/i.test(message)) {
+    body = { code: 'DATABASE_UNAVAILABLE', error: 'The study database did not respond in time. Nothing was lost — please try again in a moment.' };
+  } else if (grpc === 10 || /ABORTED|contention/i.test(message)) {
+    status = 409;
+    body = { code: 'TRY_AGAIN', error: 'Your request clashed with another save made at the same moment. Nothing was lost — please try again.' };
+  } else {
+    status = 500;
+    body = { code: 'SERVER_ERROR', error: `The server could not complete this request (reference ${ref}). Your saved results are safe — please try again, and tell the researchers this reference if it keeps happening.` };
+  }
+  return [{ ...body, ref }, { status }];
 }
 
 export async function requireUser(): Promise<SessionUser> {

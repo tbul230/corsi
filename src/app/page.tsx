@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { Container } from '@/components/ui';
 import { ArrowIcon, ConditionIcon } from '@/components/icons';
 import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
-import { getSessionUser } from '@/lib/server/session';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { loadParticipantState } from '@/lib/participant-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,10 @@ function TrialIllustration() {
 }
 
 export default async function Home() {
-  const signedIn = Boolean(await getSessionUser());
+  const { user, state } = await loadParticipantState();
+  const active = state?.sessions.find((s) => s.status !== 'completed');
+  const next = !user ? null : !state ? '/register' : active ? `/session/${active.id}` : '/dashboard';
+  const nextLabel = !state ? 'Continue registration' : active ? 'Resume your session' : 'Continue experiment';
   return (
     <>
       <Container className="py-10 sm:py-14 lg:py-20">
@@ -54,14 +58,25 @@ export default async function Home() {
               Does the way you spend a short break change how much you can hold in mind? We measure your Corsi span, the
               longest sequence of blocks you can remember and repeat, after three different 15-minute breaks.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href={signedIn ? '/dashboard' : '/register'} className="btn btn-primary px-6">
-                {signedIn ? 'Continue experiment' : 'Start Experiment'}
-                <ArrowIcon className="h-4 w-4" />
-              </Link>
-              <Link href="/methodology" className="btn btn-glass">
-                Read the method
-              </Link>
+            <div className="mt-8 max-w-sm">
+              {next ? (
+                <Link href={next} className="btn btn-primary w-full px-6" data-testid="continue">
+                  {nextLabel}
+                  <ArrowIcon className="h-4 w-4" />
+                </Link>
+              ) : (
+                <GoogleSignInButton label="Sign in with Google" />
+              )}
+              <p className="mt-3 text-sm text-ink-3">
+                {user ? (
+                  <>Signed in as {user.email}.</>
+                ) : (
+                  <>Everyone takes part with their Google account. </>
+                )}{' '}
+                <Link href="/methodology" className="underline underline-offset-2 hover:text-ink">
+                  Read the method
+                </Link>
+              </p>
             </div>
             <dl className="glass-soft mt-10 grid max-w-[38rem] grid-cols-3 divide-x divide-white/8 rounded-2xl">
               {[

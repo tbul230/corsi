@@ -76,7 +76,7 @@ export default function RegisterFlow({ user }: { user: { email: string; name: st
       }
       setStep('consent');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong.');
+      setError(err instanceof ApiError ? err.message : 'Could not reach the server. Check your connection and try again.');
     } finally {
       setBusy(false);
     }
@@ -92,7 +92,7 @@ export default function RegisterFlow({ user }: { user: { email: string; name: st
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong.');
+      setError(err instanceof ApiError ? err.message : 'Could not reach the server. Check your connection and try again.');
       if (err instanceof ApiError && err.code === 'DUPLICATE_NAME') setStep('name');
       if (err instanceof ApiError && err.code === 'ALREADY_REGISTERED') router.push('/dashboard');
       setBusy(false);

@@ -31,5 +31,5 @@ export function mapDbError(message: string | undefined) {
   const code = (message ?? '').trim();
   const known = ERROR_MESSAGES[code];
   if (known) return { code, ...known };
-  return { code: 'SERVER_ERROR', status: 500, message: 'Something went wrong while saving. Please try again.' };
+  return { code: 'SERVER_ERROR', status: 500, message: 'The server could not complete this request. Please try again.' };
 }

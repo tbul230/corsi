@@ -18,7 +18,7 @@ function auth() {
 }
 
 /** Opens the Google sign-in popup and exchanges the Firebase ID token for a server session. */
-export async function signInWithGoogle(): Promise<{ isAdmin: boolean; registered: boolean }> {
+export async function signInWithGoogle(): Promise<{ isAdmin: boolean; registered: boolean; next: string }> {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   const cred = await signInWithPopup(auth(), provider);

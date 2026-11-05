@@ -16,15 +16,18 @@ function GoogleG(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-/** Google sign-in. After success: admins → `adminTarget`, registered participants → dashboard, others → registration. */
+/** Google sign-in. After success: admins → `adminTarget` (if given); new users → registration; returning users → their next step. */
 export default function GoogleSignInButton({
   label = 'Continue with Google',
   adminTarget,
-  onSignedIn
+  onSignedIn,
+  reloadAfter
 }: {
   label?: string;
   adminTarget?: string;
-  onSignedIn?: (r: { isAdmin: boolean; registered: boolean }) => void;
+  /** Stay on the current page and reload it after signing in. */
+  reloadAfter?: boolean;
+  onSignedIn?: (r: { isAdmin: boolean; registered: boolean; next: string }) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -36,8 +39,9 @@ export default function GoogleSignInButton({
     try {
       const r = await signInWithGoogle();
       if (onSignedIn) onSignedIn(r);
+      else if (reloadAfter) window.location.reload();
       else if (adminTarget && r.isAdmin) router.push(adminTarget);
-      else router.push(r.registered ? '/dashboard' : '/register');
+      else router.push(r.next || (r.registered ? '/dashboard' : '/register'));
       router.refresh();
     } catch (err) {
       setError(describeAuthError(err));

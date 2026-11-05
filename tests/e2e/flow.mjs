@@ -99,11 +99,19 @@ const post = async (page, action, data) => {
   const anon = await (await browser.newContext()).newPage();
   anon.on('pageerror', (e) => errors.push(e.message));
   await anon.goto(BASE);
-  await anon.click('text=Start Experiment');
-  await anon.waitForURL('**/register');
-  check('not signed in → Google sign-in required', await anon.locator('[data-testid=google-signin]').isVisible());
-  const unauth = await post(anon, 'start-break', { condition: 'youtube' });
-  check('API refuses participants who are not signed in', unauth.status === 401);
+  check('landing: single "Sign in with Google" button', (await anon.locator('[data-testid=google-signin]').count()) === 1 && (await anon.locator('input').count()) === 0);
+  for (const path of ['/dashboard', '/select', '/session/x__youtube']) {
+    await anon.goto(BASE + path);
+    check(`signed out: ${path} → sign-in`, anon.url().endsWith('/register') && (await anon.locator('[data-testid=google-signin]').count()) === 1);
+  }
+  await anon.goto(`${BASE}/results`);
+  check('signed out: /results asks to sign in', (await anon.locator('[data-testid=google-signin]').count()) === 1);
+  for (const [method, path] of [['POST', '/api/participant/start-break'], ['POST', '/api/participant/state'], ['GET', '/api/results'], ['GET', '/api/admin/export?type=sessions'], ['POST', '/api/admin/action'], ['POST', '/api/auth/session']]) {
+    const r = await anon.request.fetch(BASE + path, { method, data: method === 'POST' ? {} : undefined });
+    check(`signed out: ${method} ${path} → 401`, r.status() === 401, String(r.status()));
+  }
+  const badToken = await anon.request.post(`${BASE}/api/auth/session`, { data: { idToken: 'eyJhbGciOiJSUzI1NiJ9.e30.c2ln' } });
+  check('forged Google ID token rejected (401)', badToken.status() === 401);
   await anon.goto(`${BASE}/admin`);
   check('admin page → Google login', anon.url().includes('/admin/login') && (await anon.locator('[data-testid=google-signin]').count()) === 1);
   check('no admin password field anymore', (await anon.locator('input[type=password]').count()) === 0);
@@ -162,6 +170,22 @@ const post = async (page, action, data) => {
   const again = await post(page, 'start-break', { condition: 'video_game' });
   check('cannot restart same condition', again.status === 409 && again.json.code === 'CONDITION_ALREADY_DONE');
 
+  // Returning user (same Google account, new browser): lands on their next step
+  const back = await browser.newContext({ ...devices['iPhone 13'] });
+  await back.addCookies([await cookieFor(uid, `${uid}@example.com`, 'Zztest Foxtrot')]);
+  const bp = await back.newPage();
+  await bp.goto(BASE);
+  const cont = bp.locator('[data-testid=continue]');
+  check('returning user: landing offers "Resume your session"', (await cont.textContent())?.includes('Resume'));
+  check('returning user: resume link goes to the running break', (await cont.getAttribute('href')) === `/session/${sid}`);
+  await cont.click();
+  await bp.waitForSelector('[data-testid=timer]');
+  await bp.waitForTimeout(1500);
+  const tb = clock(await bp.textContent('[data-testid=timer]'));
+  const ta = clock(await page.textContent('[data-testid=timer]'));
+  check('returning user: same remaining time on another device', Math.abs(tb - ta) <= 2, `${ta} vs ${tb}`);
+  await back.close();
+
   // Someone else cannot touch this session
   const intruderCtx = await browser.newContext();
   await intruderCtx.addCookies([await cookieFor(`x_${RUN}`, `x_${RUN}@example.com`, 'Other Person')]);
@@ -219,7 +243,9 @@ const post = async (page, action, data) => {
   });
   check('same name from another account blocked', dupName.status === 409 && dupName.json.code === 'DUPLICATE_NAME');
   const notAdmin = await page.request.get(`${BASE}/api/admin/export?type=sessions`);
-  check('participants cannot export', notAdmin.status() === 403);
+  check('non-admin: admin API → 403', notAdmin.status() === 403);
+  const notAdminPage = await page.goto(`${BASE}/admin`);
+  check('non-admin: /admin page → 403', notAdminPage.status() === 403);
 
   // ---------- admin ----------
   const adminCtx = await browser.newContext({ viewport: { width: 1280, height: 860 } });

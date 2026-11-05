@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
-import { Container, PageHeader } from '@/components/ui';
+import { Card, Container, PageHeader } from '@/components/ui';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { getSessionUser } from '@/lib/server/session';
 import LiveResults from './LiveResults';
 
 export const metadata: Metadata = { title: 'Experiment results' };
+export const dynamic = 'force-dynamic';
 
-export default function ResultsPage() {
+export default async function ResultsPage() {
+  const user = await getSessionUser();
   return (
     <Container className="py-8 sm:py-10 lg:py-12">
       <div className="mb-6">
@@ -14,7 +18,17 @@ export default function ResultsPage() {
           description="Calculated directly from completed tests and refreshed automatically. Participants appear as anonymous codes. With small samples, treat differences as descriptive rather than conclusive."
         />
       </div>
-      <LiveResults />
+      {user ? (
+        <LiveResults />
+      ) : (
+        <Card className="max-w-md">
+          <p className="font-medium">Sign in to view the results</p>
+          <p className="mt-1 text-sm text-ink-2">The live results are available to everyone taking part.</p>
+          <div className="mt-4">
+            <GoogleSignInButton label="Sign in with Google" reloadAfter />
+          </div>
+        </Card>
+      )}
     </Container>
   );
 }

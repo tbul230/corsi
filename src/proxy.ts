@@ -3,7 +3,7 @@ import { jwtVerify } from 'jose';
 
 /**
  * Gate for every administrator page and API, evaluated on the server before any
- * admin code runs. The session cookie is only ever issued by /api/auth/session after
+ * admin page or route handler runs. The session cookie is only ever issued by /api/auth/session after
  * the Firebase ID token was verified (Google provider, verified email); admin status
  * is decided here from that verified email and the ADMIN_EMAILS list.
  *   signed out → pages redirect to Google sign-in, APIs return 401

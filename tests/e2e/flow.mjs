@@ -90,7 +90,9 @@ const post = async (page, action, data) => {
 };
 
 (async () => {
-  const browser = await chromium.launch();
+  // Route the browser and its request API through an outbound proxy when one is configured.
+  const proxy = process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } : undefined;
+  const browser = await chromium.launch({ proxy });
   const errors = [];
 
   // ---------- anonymous visitor ----------

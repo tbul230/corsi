@@ -7,7 +7,6 @@
   },
   "auth": {
     "providers": {
-      "emailPassword": true,
       "googleSignIn": {
         "oAuthBrandDisplayName": "Corsi Experiment",
         "supportEmail": "teddyb.ceo@gmail.com"

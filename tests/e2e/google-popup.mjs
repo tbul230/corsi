@@ -5,7 +5,7 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.BASE_URL;
-const browser = await chromium.launch();
+const browser = await chromium.launch({ proxy: process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY } : undefined });
 const page = await (await browser.newContext()).newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
@@ -16,8 +16,9 @@ const check = (n, ok, d = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${d ? ' — ' + d : ''}`);
 };
 
-for (const path of ['/register', '/admin/login']) {
-  await page.goto(BASE + path, { waitUntil: 'networkidle' });
+for (const path of ['/', '/register', '/admin/login']) {
+  await page.goto(BASE + path, { waitUntil: 'load' });
+  await page.waitForSelector('[data-testid=google-signin]');
   const [popup] = await Promise.all([
     page.waitForEvent('popup', { timeout: 15000 }),
     page.click('[data-testid=google-signin]')

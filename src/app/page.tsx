@@ -3,6 +3,7 @@ import { Container } from '@/components/ui';
 import { ArrowIcon, ConditionIcon } from '@/components/icons';
 import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
 import GoogleSignInButton from '@/components/GoogleSignInButton';
+import AnonymityNote from '@/components/AnonymityNote';
 import { loadParticipantState } from '@/lib/participant-server';
 
 export const dynamic = 'force-dynamic';
@@ -67,12 +68,8 @@ export default async function Home() {
               ) : (
                 <GoogleSignInButton label="Sign in with Google" />
               )}
+              <AnonymityNote className="mt-4" />
               <p className="mt-3 text-sm text-ink-3">
-                {user ? (
-                  <>Signed in as {user.email}.</>
-                ) : (
-                  <>Everyone takes part with their Google account. </>
-                )}{' '}
                 <Link href="/methodology" className="underline underline-offset-2 hover:text-ink">
                   Read the method
                 </Link>

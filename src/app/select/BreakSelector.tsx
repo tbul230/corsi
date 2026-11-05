@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert } from '@/components/ui';
+import AnonymityNote from '@/components/AnonymityNote';
 import { ArrowIcon, CheckIcon, ConditionIcon } from '@/components/icons';
 import { api, ApiError } from '@/lib/api';
 import { CONDITIONS, CONDITION_INFO, type Condition } from '@/lib/constants';
@@ -140,7 +141,8 @@ export default function BreakSelector({
               <div className="mt-2">
                 <Bullets items={TEST_STEPS} />
               </div>
-              <label className="glass-soft mt-6 flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm">
+              <AnonymityNote className="mt-6" />
+              <label className="glass-soft mt-3 flex cursor-pointer items-start gap-3 rounded-xl p-3 text-sm">
                 <input
                   type="checkbox"
                   checked={ack}

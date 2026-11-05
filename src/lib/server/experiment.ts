@@ -2,6 +2,7 @@ import 'server-only';
 import { randomInt } from 'node:crypto';
 import { FieldValue, type DocumentReference, type Transaction } from 'firebase-admin/firestore';
 import { db } from './firebase-admin';
+import { randomCode } from './pseudonym';
 import { CONDITIONS, type Condition } from '../constants';
 
 /**
@@ -9,9 +10,13 @@ import { CONDITIONS, type Condition } from '../constants';
  * Firestore security rules deny every client read/write, so the browser can never
  * touch the database directly. Each state change is a Firestore transaction.
  *
+ * ANONYMITY: participant data is keyed by pid = HMAC-SHA256(firebaseUid, PARTICIPANT_ID_SECRET)
+ * (see pseudonym.ts). No Firebase UID, email, name or photo is ever written to Firestore;
+ * people are shown only as a short random code such as P-7F3K.
+ *
  * Collections
- *   participants/{pid}            pid = Google uid, or test_<adminUid>_<id> for admin test runs
- *   names/{nameKey}               uniqueness index for real participants' names
+ *   participants/{pid}            pid = HMAC of the Google uid, or test_<adminHmacPrefix>_<id> for admin test runs
+ *   codes/{code}                  uniqueness index for the short anonymous codes
  *   sessions/{pid}__{condition}   one document per participant per condition (the doc id
  *                                 itself makes repeating a condition impossible)
  *   sessions/{sid}/trials/{nnn}   trial-by-trial records (create-only)
@@ -42,11 +47,8 @@ const ORDERS: Condition[][] = [
 type Status = 'break_in_progress' | 'awaiting_test' | 'test_in_progress' | 'completed';
 
 interface ParticipantDoc {
-  uid: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  name_key: string | null;
+  /** Short random anonymous code shown to admins and to the participant, e.g. "P-7F3K". */
+  code: string;
   is_test: boolean;
   consent_participation: boolean;
   consent_quiet_environment: boolean;
@@ -83,6 +85,8 @@ export interface SessionDoc {
   failures_at_length: number;
   pending_sequence: number[] | null;
   pending_issued_at: string | null;
+  /** Coarse input device used for the test ('touch' | 'mouse' | 'unknown'): a covariate for the analysis. */
+  input_type: string | null;
   trial_count: number;
   correct_count: number;
   incorrect_count: number;
@@ -118,17 +122,6 @@ const participants = () => db().collection('participants');
 const sessions = () => db().collection('sessions');
 const pad = (n: number) => String(n).padStart(3, '0');
 
-export function cleanName(raw: unknown): string {
-  const v = String(raw ?? '')
-    .trim()
-    .replace(/\s+/g, ' ');
-  if (v.length < 1 || v.length > 60 || !/^\p{L}[\p{L} '’.-]*$/u.test(v)) throw new ExperimentError('INVALID_NAME');
-  return v;
-}
-
-const nameKey = (first: string, last: string) =>
-  encodeURIComponent(`${first.toLowerCase()}|${last.toLowerCase()}`).replace(/\./g, '%2E');
-
 /** n distinct blocks (0–8) in random order — no block is ever repeated within a sequence. */
 export function randomSequence(n: number): number[] {
   const blocks = [0, 1, 2, 3, 4, 5, 6, 7, 8];
@@ -147,6 +140,7 @@ function sessionJson(id: string, s: SessionDoc) {
     status: s.status,
     is_test: s.is_test,
     break_skipped: s.break_skipped,
+    input_type: s.input_type ?? null,
     expected_break_seconds: s.expected_break_seconds,
     break_started_at: s.break_started_at,
     break_ends_at: s.break_ends_at,
@@ -170,9 +164,7 @@ function sessionJson(id: string, s: SessionDoc) {
 function participantJson(id: string, p: ParticipantDoc) {
   return {
     id,
-    first_name: p.first_name,
-    last_name: p.last_name,
-    email: p.email,
+    code: p.code,
     assigned_order: p.assigned_order,
     is_test: p.is_test,
     experiment_completed: p.experiment_completed,
@@ -224,31 +216,30 @@ export async function getParticipantState(pid: string) {
   return { participant: participantJson(pid, p), sessions: list, server_now: iso() };
 }
 
-export async function isNameAvailable(first: string, last: string) {
-  const f = cleanName(first);
-  const l = cleanName(last);
-  const snap = await db().collection('names').doc(nameKey(f, l)).get();
-  return !snap.exists;
+/** Reserve a unique short code inside a transaction (retries with a fresh code on collision). */
+async function reserveCode(tx: Transaction, prefix: 'P' | 'T', pid: string) {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const code = randomCode(prefix, attempt < 5 ? 4 : 5);
+    const ref = db().collection('codes').doc(code);
+    if (!(await tx.get(ref)).exists) return { code, ref, pid };
+  }
+  throw new Error('Could not allocate an anonymous code');
 }
 
 export async function registerParticipant(
-  user: { uid: string; email: string },
-  input: { firstName: unknown; lastName: unknown; consent: { participation?: unknown; quiet?: unknown; guidelines?: unknown } }
+  pid: string,
+  input: { consent: { participation?: unknown; quiet?: unknown; guidelines?: unknown } }
 ) {
   if (!(input.consent.participation === true && input.consent.quiet === true && input.consent.guidelines === true)) {
     throw new ExperimentError('CONSENT_REQUIRED');
   }
-  const first = cleanName(input.firstName);
-  const last = cleanName(input.lastName);
-  const key = nameKey(first, last);
-  const pRef = participants().doc(user.uid);
-  const nRef = db().collection('names').doc(key);
+  const pRef = participants().doc(pid);
   const cRef = db().collection('meta').doc('counters');
 
   await db().runTransaction(async (tx) => {
-    const [pSnap, nSnap, cSnap] = await Promise.all([tx.get(pRef), tx.get(nRef), tx.get(cRef)]);
+    const [pSnap, cSnap] = await Promise.all([tx.get(pRef), tx.get(cRef)]);
     if (pSnap.exists) throw new ExperimentError('ALREADY_REGISTERED');
-    if (nSnap.exists) throw new ExperimentError('DUPLICATE_NAME');
+    const reserved = await reserveCode(tx, 'P', pid);
     // Counterbalancing: pick the least-used of the six condition orders (ties broken randomly).
     const counts = (cSnap.data()?.order_counts ?? {}) as Record<string, number>;
     const min = Math.min(...ORDERS.map((o) => counts[o.join('>')] ?? 0));
@@ -256,11 +247,7 @@ export async function registerParticipant(
     const order = candidates[randomInt(candidates.length)];
     const now = iso();
     const doc: ParticipantDoc = {
-      uid: user.uid,
-      email: user.email,
-      first_name: first,
-      last_name: last,
-      name_key: key,
+      code: reserved.code,
       is_test: false,
       consent_participation: true,
       consent_quiet_environment: true,
@@ -276,26 +263,20 @@ export async function registerParticipant(
       next_order: 1
     };
     tx.create(pRef, doc);
-    tx.create(nRef, { participant_id: user.uid, created_at: now });
+    tx.create(reserved.ref, { participant_id: pid, created_at: now });
     tx.set(cRef, { order_counts: { [order.join('>')]: FieldValue.increment(1) } }, { merge: true });
   });
-  return getParticipantState(user.uid);
+  return getParticipantState(pid);
 }
 
-/** Admin test mode: a throw-away participant (no registration) whose results never count. */
-export async function createTestParticipant(admin: { uid: string; email: string }) {
-  const cRef = db().collection('meta').doc('counters');
-  const pid = `test_${admin.uid}_${Date.now().toString(36)}`;
+/** Admin test mode: a throw-away participant whose results never count. Stores no admin identity. */
+export async function createTestParticipant(testPrefix: string) {
+  const pid = `${testPrefix}${Date.now().toString(36)}`;
   await db().runTransaction(async (tx) => {
-    const c = await tx.get(cRef);
-    const n = Number(c.data()?.test_runs ?? 0) + 1;
+    const reserved = await reserveCode(tx, 'T', pid);
     const now = iso();
     const doc: ParticipantDoc = {
-      uid: admin.uid,
-      email: admin.email,
-      first_name: 'Admin',
-      last_name: `Test ${String(n).padStart(3, '0')}`,
-      name_key: null,
+      code: reserved.code,
       is_test: true,
       consent_participation: true,
       consent_quiet_environment: true,
@@ -311,7 +292,7 @@ export async function createTestParticipant(admin: { uid: string; email: string 
       next_order: 1
     };
     tx.create(participants().doc(pid), doc);
-    tx.set(cRef, { test_runs: n }, { merge: true });
+    tx.create(reserved.ref, { participant_id: pid, created_at: now });
   });
   return pid;
 }
@@ -349,6 +330,7 @@ export async function startBreak(pid: string, condition: Condition) {
       failures_at_length: 0,
       pending_sequence: null,
       pending_issued_at: null,
+      input_type: null,
       trial_count: 0,
       correct_count: 0,
       incorrect_count: 0,
@@ -398,7 +380,7 @@ export async function getSessionDetail(pid: string, sid: string) {
   return {
     session: sessionJson(sid, s),
     trials,
-    participant: { first_name: p?.first_name ?? '', last_name: p?.last_name ?? '', is_test: Boolean(p?.is_test) },
+    participant: { code: p?.code ?? '', is_test: Boolean(p?.is_test) },
     server_now: iso()
   };
 }
@@ -448,7 +430,7 @@ export async function skipBreak(pid: string, sid: string) {
 }
 
 /** Starts the test (first call) or resumes it after an interruption; returns the trial to present. */
-export async function nextTrial(pid: string, sid: string) {
+export async function nextTrial(pid: string, sid: string, inputType?: unknown) {
   return db().runTransaction(async (tx) => {
     const { ref, s: current } = await ownedSession(tx, pid, sid);
     let s = { ...current };
@@ -459,7 +441,8 @@ export async function nextTrial(pid: string, sid: string) {
       s = { ...s, ...update } as SessionDoc;
     }
     if (s.status === 'awaiting_test') {
-      const u: Partial<SessionDoc> = { status: 'test_in_progress', test_started_at: iso(), current_length: 2, failures_at_length: 0 };
+      const input = inputType === 'touch' || inputType === 'mouse' ? inputType : 'unknown';
+      const u: Partial<SessionDoc> = { status: 'test_in_progress', test_started_at: iso(), current_length: 2, failures_at_length: 0, input_type: input };
       update = { ...update, ...u };
       s = { ...s, ...u } as SessionDoc;
     } else if (s.pending_sequence) {
@@ -601,7 +584,7 @@ export async function getPublicResults() {
     .map((d) => ({ id: d.id, ...(d.data() as ParticipantDoc) }))
     .filter((p) => !p.is_test)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const label = new Map(real.map((p, i) => [p.id, `P${String(i + 1).padStart(2, '0')}`]));
+  const label = new Map(real.map((p) => [p.id, p.code]));
   const rows = ss.docs
     .map((d) => d.data() as SessionDoc)
     .filter((s) => !s.is_test && label.has(s.participant_id))
@@ -633,9 +616,7 @@ export async function getAdminData() {
       const p = d.data() as ParticipantDoc;
       return {
         id: d.id,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        email: p.email,
+        code: p.code,
         consent_participation: p.consent_participation,
         consent_quiet_environment: p.consent_quiet_environment,
         consent_guidelines: p.consent_guidelines,
@@ -659,6 +640,7 @@ export async function getAdminData() {
         status: s.status as string,
         is_test: s.is_test,
         break_skipped: s.break_skipped,
+        input_type: s.input_type ?? null,
         expected_break_seconds: s.expected_break_seconds,
         break_started_at: s.break_started_at,
         break_ends_at: s.break_ends_at,
@@ -717,7 +699,7 @@ export async function adminDeleteSession(adminEmail: string, sid: string) {
     deleted_by_email: adminEmail,
     kind: 'session',
     target_id: sid,
-    summary: `${p ? `${p.first_name} ${p.last_name}` : '?'} · ${s.condition} · span ${s.corsi_span ?? '—'}`,
+    summary: `${p?.code ?? '?'} · ${s.condition} · span ${s.corsi_span ?? '—'}`,
     snapshot: JSON.stringify(snapshot)
   });
   await deleteSessionTree(ref);
@@ -744,10 +726,10 @@ export async function adminDeleteParticipant(adminEmail: string, pid: string) {
     deleted_by_email: adminEmail,
     kind: 'participant',
     target_id: pid,
-    summary: `${p.first_name} ${p.last_name}${p.is_test ? ' (test)' : ''}`,
+    summary: `${p.code}${p.is_test ? ' (test)' : ''}`,
     snapshot: JSON.stringify({ participant: p, sessions: snaps })
   });
   for (const d of ss.docs) await deleteSessionTree(d.ref);
-  if (p.name_key) await db().collection('names').doc(p.name_key).delete();
+  if (p.code) await db().collection('codes').doc(p.code).delete();
   await pRef.delete();
 }

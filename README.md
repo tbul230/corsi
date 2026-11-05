@@ -15,7 +15,7 @@ Every participant completes each condition **exactly once**, in any (counterbala
 ## Participant flow
 
 1. **Start** → **Sign in with Google** (Firebase Authentication). Everyone must sign in; there are no passwords or access codes.
-2. **Confirm name** (pre-filled from Google; real first + last name, duplicates blocked) and **consent** (three required agreements and a plain-language explanation of what is collected, who sees it and how it is used)
+2. **Consent** (three required agreements and a plain-language explanation of what is collected, who sees it and how it is used). No name or other identifying information is asked for.
 3. **Choose a break** → three cards; completed conditions are disabled with a COMPLETED badge and the previous score
 4. **15-minute break** → a real countdown computed from server timestamps (survives refresh, background tabs and closing the browser; cannot be paused, reset or skipped; the server refuses an early test)
 5. **Corsi test** → 3×3 grid, server-generated sequences, fixed timing, stopping rule
@@ -52,6 +52,17 @@ Charts: average span by break type (with *n*), individual participant comparison
 
 Admin dashboard: all participants, per-participant detail with exact break/test timestamps, trial-by-trial data, completion statistics, unfinished sessions, interrupted breaks, and CSV export (sessions, trials, participants, break events).
 
+## Anonymity
+
+Participation is anonymous: nobody, admins included, can tie results to a person.
+
+- All participant data is keyed by `participantId = HMAC-SHA256(firebaseUid, PARTICIPANT_ID_SECRET)`. The secret exists only in the server environment, so database or export access is not enough to map an ID back to a Google account. The same Google account always gives the same ID, so progress resumes across devices.
+- Firestore never stores a Firebase UID, email, display name or photo URL. People appear only as a random code such as `P-7F3K` (admin test runs: `T-XXXX`).
+- Registration asks no identifying questions. The data kept for the analysis is consent and its time, the counterbalanced order, each session's break and test timestamps, the trial records and coarse input type (touch or mouse), and break-page events.
+- The admin dashboard, CSV exports and results charts show codes only. Logs record a request reference and error type, never an email, UID or name.
+- Admin access is still decided per request from the Google email in the session cookie against `ADMIN_EMAILS`. Admin emails are never written to participant data. Deletions record which admin performed them, in the separate admin-only deletion log.
+- Residual risk: Firebase Authentication's own user list (outside Firestore) still holds the Google accounts that signed in; it contains no results. Exact timestamps could in theory be matched against who was seen taking part at a given time.
+
 ## Admin tools
 
 **Administrators** are the Google accounts listed in the `ADMIN_EMAILS` environment variable. They sign in with Google at `/admin` like everyone else and are recognised automatically, with no password and no code.
@@ -76,7 +87,7 @@ Admin dashboard: all participants, per-participant detail with exact break/test 
   - sequences, correctness and all scores are computed by the server
   - completed results are never modified; only admins can delete, and every deletion is logged
 
-Firestore layout: `participants/{uid}`, `names/{nameKey}` (unique names), `sessions/{id}` with `trials/` and `events/` sub-collections, `deletion_log/`, `meta/counters` (counterbalancing).
+Firestore layout: `participants/{hmacId}`, `codes/{code}` (unique anonymous codes), `sessions/{id}` with `trials/` and `events/` sub-collections, `deletion_log/`, `meta/counters` (counterbalancing).
 
 ## Local development
 
@@ -113,4 +124,5 @@ Deploy Firestore rules and Auth config: `npx firebase deploy --only firestore,au
 | `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase web app config (public) |
 | `FIREBASE_SERVICE_ACCOUNT` | **Secret.** Service-account JSON from Firebase console → Project settings → Service accounts → *Generate new private key* (raw JSON or base64) |
 | `SESSION_SECRET` | **Secret.** Random string (32+ chars) that signs session cookies |
+| `PARTICIPANT_ID_SECRET` | **Secret.** 32+ random bytes; HMAC key for pseudonymous participant IDs. Never change it once data exists |
 | `ADMIN_EMAILS` | Comma-separated Google accounts with admin access |

@@ -8,8 +8,7 @@ export const metadata: Metadata = { title: 'Register' };
 export const dynamic = 'force-dynamic';
 
 const EXPECT: [string, string][] = [
-  ['Sign in with Google', 'Keeps your three sessions linked to you on any device.'],
-  ['Confirm your name', 'Your real first and last name.'],
+  ['Sign in with Google', 'Only to save your progress across devices.'],
   ['Three agreements', 'Participation, a quiet space, and honest effort.'],
   ['Then choose a break', 'Video game, YouTube, or no screens — 15 minutes.']
 ];
@@ -36,12 +35,12 @@ export default async function RegisterPage() {
               ))}
             </ol>
             <p className="mt-6 text-sm text-ink-3">
-              Only the research team can see names. Public results use anonymous codes such as “P04”.
+              Your responses are anonymous: researchers see only a random code like “P-7F3K”, never your name or Google account.
             </p>
           </div>
         </aside>
         <div className="min-w-0 lg:max-w-2xl">
-          <RegisterFlow user={user ? { email: user.email, name: user.name } : null} />
+          <RegisterFlow signedIn={Boolean(user)} />
         </div>
       </div>
     </Container>

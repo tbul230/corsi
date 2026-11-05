@@ -1,15 +1,17 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import { jwtVerify, SignJWT } from 'jose';
+import { participantIdFor, testPrefixFor } from './pseudonym';
 
 export const SESSION_COOKIE = 'corsi_session';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 export interface SessionUser {
+  /** Firebase UID — used only in memory (HMAC input and admin test prefix), never stored or logged. */
   uid: string;
+  /** Verified Google email — used only for the admin allowlist check, never stored or logged. */
   email: string;
-  name: string;
-  /** Participant record in use: the user's own (uid) or an admin test-run participant. */
+  /** Pseudonymous participant ID: HMAC-SHA256(uid), or an admin test-run participant. */
   pid: string;
   isAdmin: boolean;
 }
@@ -32,8 +34,9 @@ export function isAdminEmail(email: string | null | undefined) {
   return Boolean(email) && adminEmails().includes(email!.toLowerCase());
 }
 
-export async function createSessionToken(user: { uid: string; email: string; name: string; pid?: string }) {
-  return new SignJWT({ email: user.email, name: user.name, pid: user.pid ?? user.uid })
+/** Session cookie: signed, httpOnly, lives only in the participant's own browser. `pid` is set only for admin test runs. */
+export async function createSessionToken(user: { uid: string; email: string; pid?: string }) {
+  return new SignJWT({ email: user.email, ...(user.pid ? { pid: user.pid } : {}) })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(user.uid)
     .setIssuedAt()
@@ -41,7 +44,7 @@ export async function createSessionToken(user: { uid: string; email: string; nam
     .sign(secret());
 }
 
-export async function setSessionCookie(user: { uid: string; email: string; name: string; pid?: string }) {
+export async function setSessionCookie(user: { uid: string; email: string; pid?: string }) {
   (await cookies()).set(SESSION_COOKIE, await createSessionToken(user), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -65,10 +68,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const email = String(payload.email ?? '');
     if (!uid || !email) return null;
     const isAdmin = isAdminEmail(email);
-    let pid = String(payload.pid ?? uid);
-    // Only admins may act as a test-run participant.
-    if (pid !== uid && !(isAdmin && pid.startsWith(`test_${uid}_`))) pid = uid;
-    return { uid, email, name: String(payload.name ?? ''), pid, isAdmin };
+    const own = participantIdFor(uid);
+    const requested = typeof payload.pid === 'string' ? payload.pid : '';
+    // Only admins may act as one of their own test-run participants.
+    const pid = isAdmin && requested.startsWith(testPrefixFor(uid)) ? requested : own;
+    return { uid, email, pid, isAdmin };
   } catch {
     return null;
   }

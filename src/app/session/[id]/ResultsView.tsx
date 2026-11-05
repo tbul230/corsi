@@ -24,7 +24,7 @@ export default function ResultsView({ detail }: { detail: SessionDetail }) {
             {participant.is_test ? 'Saved as a test run (not counted)' : 'Saved to the study database'}
           </p>
           <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl lg:text-[2.1rem]">
-            {participant.first_name} {participant.last_name}
+            Participant <span className="font-mono">{participant.code}</span>
           </h1>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-ink-2">
             <ConditionIcon condition={s.condition} className="h-4.5 w-4.5" style={{ color: info.accent }} />

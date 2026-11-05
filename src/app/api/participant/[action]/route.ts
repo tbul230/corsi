@@ -34,15 +34,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ action: st
     };
 
     switch (action) {
-      case 'check-name':
-        return NextResponse.json({ available: await X.isNameAvailable(String(body.firstName ?? ''), String(body.lastName ?? '')) });
-
       case 'register': {
-        if (pid !== user.uid) throw new X.ExperimentError('ALREADY_REGISTERED');
+        if (pid.startsWith('test_')) throw new X.ExperimentError('ALREADY_REGISTERED');
         const consent = (body.consent ?? {}) as Record<string, unknown>;
-        return NextResponse.json(
-          await X.registerParticipant(user, { firstName: body.firstName, lastName: body.lastName, consent })
-        );
+        return NextResponse.json(await X.registerParticipant(pid, { consent }));
       }
 
       case 'state': {
@@ -79,7 +74,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ action: st
 
       case 'next-trial':
         needSid();
-        return NextResponse.json(await X.nextTrial(pid, sid));
+        return NextResponse.json(await X.nextTrial(pid, sid, body.inputType));
 
       case 'submit-trial':
         needSid();

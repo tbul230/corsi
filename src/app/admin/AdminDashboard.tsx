@@ -95,7 +95,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
   const pById = useMemo(() => new Map(participants.map((p) => [p.id, p])), [participants]);
   const name = (pid: string) => {
     const p = pById.get(pid);
-    return p ? `${p.first_name} ${p.last_name}` : 'Unknown';
+    return p ? p.code : 'Unknown';
   };
 
   const completedSessions = sessions.filter((s) => s.status === 'completed');
@@ -202,7 +202,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
               </div>
             </div>
           </div>
-          <ResultsCharts rows={rows} totalParticipants={participants.length} participantLabel="Participant" />
+          <ResultsCharts rows={rows} totalParticipants={participants.length} participantLabel="Code" />
         </div>
       ) : null}
 
@@ -227,9 +227,8 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
               <table className="w-full text-sm">
                 <thead className="text-left text-xs font-medium text-ink-3">
                   <tr>
-                    <Th>Name</Th>
+                    <Th>Code</Th>
                     <Th>Registered</Th>
-                    <Th>Google account</Th>
                     {CONDITIONS.map((c) => (
                       <Th key={c} right>{CONDITION_INFO[c].short}</Th>
                     ))}
@@ -243,11 +242,10 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
                     return (
                       <tr key={p.id} className="hover:bg-navy-850">
                         <Td>
-                          {p.first_name} {p.last_name}
+                          <span className="font-mono">{p.code}</span>
                           {p.is_test ? <span className="ml-2 rounded-full bg-amber-300/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-100">Test</span> : null}
                         </Td>
                         <Td>{formatDateTime(p.created_at)}</Td>
-                        <Td>{p.email}</Td>
                         {CONDITIONS.map((c) => {
                           const s = ps.find((x) => x.condition === c);
                           return (
@@ -265,7 +263,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
                             <DeleteButton
                               busy={deleter.busy === p.id}
                               testId={`delete-participant-${p.id}`}
-                              onClick={() => void deleter.run('participant', p.id, `${p.first_name} ${p.last_name}`)}
+                              onClick={() => void deleter.run('participant', p.id, p.code)}
                             />
                           </span>
                         </Td>
@@ -433,14 +431,14 @@ function ParticipantDetail({
       <div className="glass rounded-2xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-semibold">
-            {p.first_name} {p.last_name}
+            Participant <span className="font-mono">{p.code}</span>
             {p.is_test ? <span className="ml-2 align-middle rounded-full bg-amber-300/15 px-2 py-0.5 text-xs font-semibold uppercase text-amber-100">Test run</span> : null}
           </h2>
           <DeleteButton
             label="Delete participant & all attempts"
             busy={deleter.busy === p.id}
             onClick={async () => {
-              if (await deleter.run('participant', p.id, `${p.first_name} ${p.last_name}`)) onBack();
+              if (await deleter.run('participant', p.id, p.code)) onBack();
             }}
           />
         </div>
@@ -449,7 +447,6 @@ function ParticipantDetail({
           <p>Consent (all three): {p.consent_participation && p.consent_quiet_environment && p.consent_guidelines ? 'Yes' : 'No'} · {formatDateTime(p.consented_at)}</p>
           <p>Assigned (counterbalanced) order: {p.assigned_order.map((c) => CONDITION_INFO[c as Condition].short).join(' → ')}</p>
           <p>Actual order: {ps.map((s) => CONDITION_INFO[s.condition].short).join(' → ') || '—'}</p>
-          <p>Google account: <span className="text-ink">{p.email}</span></p>
           <p>Experiment completed: {p.experiment_completed ? formatDateTime(p.experiment_completed_at) : 'No'}</p>
         </div>
       </div>
@@ -482,7 +479,7 @@ function ParticipantDetail({
                 busy={deleter.busy === sel.id}
                 testId="delete-session"
                 onClick={async () => {
-                  if (await deleter.run('session', sel.id, `${p.first_name} ${p.last_name} · ${CONDITION_INFO[sel.condition].short}`))
+                  if (await deleter.run('session', sel.id, `${p.code} · ${CONDITION_INFO[sel.condition].short}`))
                     onSelectSession(null);
                 }}
               />
@@ -500,6 +497,7 @@ function ParticipantDetail({
                 ['Test duration', formatDuration(sel.test_duration_seconds)],
                 ['Break interruptions', sel.break_interruptions],
                 ['Break skipped (test mode)', sel.break_skipped ? 'Yes' : 'No'],
+                ['Input device', sel.input_type ?? '—'],
                 ['Test interruptions', sel.test_interruptions],
                 ['Span / total score', `${sel.corsi_span ?? '—'} / ${sel.total_score ?? '—'}`],
                 ['Correct / incorrect / attempts', `${sel.correct_trials ?? '—'} / ${sel.incorrect_trials ?? '—'} / ${sel.total_attempts ?? '—'}`],
@@ -576,7 +574,7 @@ function ExportPanel() {
   const exports: [string, string, string][] = [
     ['sessions', 'Sessions', 'One row per participant × condition: all timestamps and scores.'],
     ['trials', 'Trials', 'Every trial: sequence, response, correctness, response time.'],
-    ['participants', 'Participants', 'Names, Google account, consent, counterbalanced order, completion.'],
+    ['participants', 'Participants', 'Anonymous code, consent, counterbalanced order, completion.'],
     ['break-events', 'Break events', 'Page opened/closed and tab hidden/visible log.']
   ];
   return (

@@ -27,7 +27,7 @@ export default async function DashboardPage() {
     <Container className="py-8 sm:py-10 lg:py-12">
       <PageHeader
         eyebrow="Participant dashboard"
-        title={`${participant.first_name} ${participant.last_name}`}
+        title={<>Your progress <span className="ml-1 rounded-lg bg-white/10 px-2 py-0.5 font-mono text-[0.7em] align-middle" data-testid="my-code">{participant.code}</span></>}
         actions={<LogoutButton />}
       />
       {isTest ? <TestModeBanner className="mt-6" /> : null}
@@ -143,10 +143,11 @@ export default async function DashboardPage() {
           )}
 
           <Card>
-            <p className="label">Signed in with Google</p>
-            <p className="mt-1 truncate font-medium">{user.email}</p>
+            <p className="label">You are anonymous</p>
+            <p className="mt-1 font-mono text-2xl font-semibold tracking-wider">{participant.code}</p>
             <p className="mt-2 text-sm text-ink-2">
-              Sign in with this Google account on any device to continue where you left off.
+              Researchers only ever see this random code and your results — never your name or Google account. Google
+              sign-in is used only to save your progress, so sign in with the same account on any device to continue.
             </p>
             {user.isAdmin ? (
               <Link href="/admin" className="btn btn-glass mt-4 w-full">Open admin dashboard</Link>

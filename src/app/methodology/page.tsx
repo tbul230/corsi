@@ -69,7 +69,7 @@ export default function MethodologyPage() {
 
       <Section id="procedure" title="Procedure (per condition)">
         <ol className="list-decimal space-y-1.5 pl-5">
-          <li>Google sign-in, then registration with real first and last name (first visit only) and three consent agreements.</li>
+          <li>Google sign-in (used only to save progress), then three consent agreements. No name or other identifying information is collected; each participant is stored under a pseudonymous ID and shown only as a random code such as P-7F3K.</li>
           <li>Selection of one of the remaining break conditions; standardised written instructions are shown.</li>
           <li>
             A {BREAK_SECONDS / 60}-minute break. The start and end times are fixed by the server when the break begins;
@@ -132,6 +132,7 @@ export default function MethodologyPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>Every participant signs in with Google, and each participant has exactly one record per break condition (enforced in a server-side database transaction), so a condition can never be repeated from any tab, browser or direct API call.</li>
           <li>Only one condition can be in progress at a time.</li>
+          <li>Participation is anonymous: data is keyed by a one-way pseudonymous ID derived from the Google account with a server-only secret, and no name, email or Google account details are stored. Researchers and administrators see only random codes.</li>
           <li>The database cannot be accessed from browsers at all; completed results are never modified, and only researchers can delete data (every deletion is logged).</li>
           <li>Researchers can try the procedure in a separate admin test mode (break can be skipped, conditions redone). Those runs are flagged as tests and excluded from every result, chart and export.</li>
           <li>Timestamps are recorded for registration, consent, break start, break end, break completion, test start, every trial and test completion.</li>

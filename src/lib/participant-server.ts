@@ -35,7 +35,9 @@ export function describeServerError(err: unknown): [{ error: string; code: strin
   const e = err as { code?: unknown; message?: unknown } | null;
   const message = String(e?.message ?? err);
   const grpc = typeof e?.code === 'number' ? e.code : null;
-  console.error(`[corsi ${ref}]`, err);
+  // No personal data in logs: only the error type/code/message (emails masked) and a request reference.
+  const safe = message.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[email]').slice(0, 500);
+  console.error(`[corsi ${ref}] ${(err as Error)?.name ?? 'Error'}${grpc !== null ? ` code=${grpc}` : ''}: ${safe}`);
   let body: { error: string; code: string };
   let status = 503;
   if (/FIREBASE_SERVICE_ACCOUNT|SESSION_SECRET/.test(message)) {

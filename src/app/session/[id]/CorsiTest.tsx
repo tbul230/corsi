@@ -75,7 +75,9 @@ export default function CorsiTest({
     setError(null);
     setPhase('loading');
     try {
-      const res = await api<NextTrialResponse>('next-trial', { sessionId: session.id });
+      // Coarse input device (touch vs mouse) is recorded as a covariate; nothing identifying.
+      const inputType = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'mouse';
+      const res = await api<NextTrialResponse>('next-trial', { sessionId: session.id, inputType });
       if (res.finished) {
         setPhase('done');
         onFinished();

@@ -7,6 +7,7 @@
 //   (BACKDATE=1) so the whole flow runs in a few minutes.
 import { chromium, devices } from 'playwright';
 import { SignJWT } from 'jose';
+import fs from 'node:fs';
 
 const BASE = process.env.BASE_URL;
 const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET);
@@ -27,6 +28,23 @@ async function cookieFor(uid, email, name) {
     .sign(SECRET);
   const url = new URL(BASE);
   return { name: 'corsi_session', value: jwt, domain: url.hostname, path: '/', httpOnly: true, secure: url.protocol === 'https:', sameSite: 'Lax' };
+}
+
+async function dumpEmulator() {
+  const { initializeApp, getApps } = await import('firebase-admin/app');
+  const { getFirestore } = await import('firebase-admin/firestore');
+  if (!getApps().length) initializeApp({ projectId: 'corsitask' });
+  const out = [];
+  async function walk(ref) {
+    for (const col of await ref.listCollections()) {
+      for (const d of (await col.get()).docs) {
+        out.push(d.ref.path, JSON.stringify(d.data()));
+        await walk(d.ref);
+      }
+    }
+  }
+  await walk(getFirestore());
+  return out.join('\n');
 }
 
 async function backdate(sid) {
@@ -123,14 +141,9 @@ const post = async (page, action, data) => {
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${BASE}/register`);
-  check('name pre-filled from Google', (await page.inputValue('#first')) === 'Zztest' && (await page.inputValue('#last')) === 'Foxtrot');
-  await page.fill('#first', '');
-  await page.click('button[type=submit]');
-  check('first name required', await page.locator('text=First name is required.').count());
-  await page.fill('#first', 'Zztest');
-  await page.fill('#last', `Foxtrot${RUN.replace(/\d/g, '')}`);
-  await page.click('button[type=submit]');
   await page.waitForSelector('text=Experiment agreement');
+  check('registration asks no identifying questions (no text inputs)', (await page.locator('input:not([type=checkbox])').count()) === 0 && (await page.locator('textarea, select').count()) === 0);
+  check('consent page says responses are anonymous', (await page.textContent('[data-testid=anonymity-note]'))?.includes('anonymous'));
   const agree = page.locator('button:has-text("I agree")');
   check('consent required (button disabled)', await agree.isDisabled());
   for (const n of [1, 2, 3]) await page.locator(`label:has-text("Agreement ${n}")`).click();
@@ -138,7 +151,9 @@ const post = async (page, action, data) => {
   await page.waitForURL('**/dashboard');
   await page.waitForTimeout(1200);
   check('registered → dashboard 0 of 3', (await page.textContent('[data-testid=progress-text]')).includes('0 of 3'));
-  const noConsent = await post(page, 'register', { firstName: 'A', lastName: 'B', consent: {} });
+  const myCode = (await page.textContent('[data-testid=my-code]')).trim();
+  check('participant sees only an anonymous code', /^P-[A-Z2-9]{4,5}$/.test(myCode) && !(await page.textContent('body')).includes(`${uid}@example.com`), myCode);
+  const noConsent = await post(page, 'register', { consent: {} });
   check('server rejects missing consent', noConsent.status === 400);
 
   await page.click('text=Choose a break');
@@ -233,15 +248,12 @@ const post = async (page, action, data) => {
   await page.goto(`${BASE}/results`);
   await page.waitForSelector('[data-testid=results-charts], [data-testid=results-empty]', { timeout: 20000 });
   check('charts render from Firestore', await page.locator('[data-testid=results-charts]').count());
-  check('public results hide names', !(await page.textContent('body')).includes('Foxtrot'));
+  const resultsText = await page.textContent('body');
+  check('results show codes, no identity', resultsText.includes(myCode) && !resultsText.includes('Foxtrot') && !resultsText.includes(uid));
 
-  // ---------- duplicate name by another Google account ----------
-  const dupName = await post(intruder, 'register', {
-    firstName: 'Zztest',
-    lastName: `Foxtrot${RUN.replace(/\d/g, '')}`,
-    consent: { participation: true, quiet: true, guidelines: true }
-  });
-  check('same name from another account blocked', dupName.status === 409 && dupName.json.code === 'DUPLICATE_NAME');
+  // ---------- another Google account gets its own anonymous participant ----------
+  const otherReg = await post(intruder, 'register', { consent: { participation: true, quiet: true, guidelines: true } });
+  check('another account → different anonymous participant', otherReg.status === 200 && otherReg.json.participant.code !== myCode);
   const notAdmin = await page.request.get(`${BASE}/api/admin/export?type=sessions`);
   check('non-admin: admin API → 403', notAdmin.status() === 403);
   const notAdminPage = await page.goto(`${BASE}/admin`);
@@ -257,9 +269,24 @@ const post = async (page, action, data) => {
   await ap.waitForSelector('text=Corsi experiment data');
   check('admin email recognised without password', true);
   await ap.click('role=tab[name=/Participants/]');
-  check('admin sees participant', (await ap.textContent('body')).includes('Foxtrot'));
-  const csv = await ap.request.get(`${BASE}/api/admin/export?type=trials`);
-  check('CSV export', csv.status() === 200 && (await csv.text()).includes('Foxtrot'));
+  const adminText = await ap.evaluate(() => document.body.innerText);
+  check('admin sees participant by anonymous code only', adminText.includes(myCode) && !adminText.includes('Foxtrot') && !adminText.includes(uid));
+  const pii = [uid, `${uid}@example.com`, 'Foxtrot', 'Zztest', `x_${RUN}`];
+  let exportsClean = true;
+  let exportsHaveCode = true;
+  for (const type of ['participants', 'sessions', 'trials', 'break-events']) {
+    const r = await ap.request.get(`${BASE}/api/admin/export?type=${type}&include_test=1`);
+    const text = await r.text();
+    if (r.status() !== 200 || pii.some((x) => text.includes(x)) || /first_name|last_name|email/i.test(text.split('\n')[0])) exportsClean = false;
+    if (!text.includes(myCode)) exportsHaveCode = false;
+  }
+  check('CSV exports: anonymous codes, no names/emails/UIDs', exportsClean && exportsHaveCode);
+  fs.writeFileSync(process.env.PII_OUT ?? '/dev/null', JSON.stringify({ uid, email: `${uid}@example.com`, name: 'Zztest Foxtrot', otherUid: `x_${RUN}`, adminUid: `admin_${RUN}`, code: myCode }));
+  if (process.env.FIRESTORE_EMULATOR_HOST) {
+    const dump = await dumpEmulator();
+    const found = pii.concat([process.env.ADMIN_EMAIL, `admin_${RUN}`]).filter((x) => dump.includes(x));
+    check('Firestore contains no email, UID or name', found.length === 0, found.join(', '));
+  }
 
   // test mode from admin dashboard
   await ap.click('role=tab[name=/Export/]');
@@ -293,11 +320,15 @@ const post = async (page, action, data) => {
 
   // delete the e2e participant
   await ap.click('role=tab[name=/Participants/]');
-  await ap.locator('tr', { hasText: 'Foxtrot' }).locator('[data-testid^=delete-participant-]').click();
-  await ap.waitForFunction(() => !document.body.innerText.includes('Foxtrot'), null, { timeout: 15000 });
-  check('admin can delete a participant', true);
-  const gone = await post(page, 'state', {});
-  check('deleted participant must register again', gone.status === 403);
+  if (process.env.KEEP_PARTICIPANT) {
+    console.log(`KEEPING participant ${myCode} for the Firestore search`);
+  } else {
+    await ap.locator('tr', { hasText: myCode }).locator('[data-testid^=delete-participant-]').click();
+    await ap.waitForFunction((c) => !document.body.innerText.includes(c), myCode, { timeout: 15000 });
+    check('admin can delete a participant', true);
+    const gone = await post(page, 'state', {});
+    check('deleted participant must register again', gone.status === 403);
+  }
 
   check('no client-side errors', errors.length === 0, errors.join(' | '));
   const failed = results.filter((r) => !r.ok);

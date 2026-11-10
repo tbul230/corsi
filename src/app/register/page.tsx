@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Register' };
 export const dynamic = 'force-dynamic';
 
 const EXPECT: [string, string][] = [
-  ['Sign in with Google', 'Only to save your progress across devices.'],
+  ['Get a code', 'Choose a password; your code and password save your progress.'],
   ['Three agreements', 'Participation, a quiet space, and honest effort.'],
   ['Then choose a break', 'Video game, YouTube, or no screens — 15 minutes.']
 ];
@@ -35,7 +35,7 @@ export default async function RegisterPage() {
               ))}
             </ol>
             <p className="mt-6 text-sm text-ink-3">
-              Your responses are anonymous: researchers see only a random code like “P-7F3K”, never your name or Google account.
+              Your responses are anonymous: researchers see only a random code like “P-7F3K”, never your name.
             </p>
           </div>
         </aside>

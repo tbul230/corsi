@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Card, Container, Eyebrow } from '@/components/ui';
 import { LockIcon } from '@/components/icons';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
+import SignInForm from '@/components/SignInForm';
 import { getSessionUser } from '@/lib/server/session';
 
 export const metadata: Metadata = { title: 'Researcher login', robots: { index: false } };
@@ -22,12 +22,11 @@ export default async function AdminLoginPage() {
             <Eyebrow>Administrators only</Eyebrow>
             <h1 className="mt-1 text-2xl font-semibold">Researcher login</h1>
             <p className="mt-2 text-sm text-ink-2">
-              Sign in with your Google account. Approved researcher accounts are recognised automatically — no password
-              needed.
+              Sign in with your researcher code and password.
             </p>
           </div>
           <div className="mt-6">
-            <GoogleSignInButton label="Sign in with Google" adminTarget="/admin" />
+            <SignInForm adminTarget="/admin" initialMode="login" />
           </div>
           {user && !user.isAdmin ? (
             <p className="mt-4 text-sm text-amber-200">

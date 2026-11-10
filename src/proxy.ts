@@ -4,9 +4,9 @@ import { jwtVerify } from 'jose';
 /**
  * Gate for every administrator page and API, evaluated on the server before any
  * admin page or route handler runs. The session cookie is only ever issued by /api/auth/session after
- * the Firebase ID token was verified (Google provider, verified email); admin status
- * is decided here from that verified email and the ADMIN_EMAILS list.
- *   signed out → pages redirect to Google sign-in, APIs return 401
+ * the participant's code and password were checked; admin status is decided here from
+ * that code and the ADMIN_CODES list.
+ *   signed out → pages redirect to /admin/login, APIs return 401
  *   signed in but not an admin → 403
  */
 export async function proxy(req: NextRequest) {
@@ -16,10 +16,10 @@ export async function proxy(req: NextRequest) {
 
   const email = await verifiedEmail(req.cookies.get('corsi_session')?.value);
   if (!email) {
-    if (isApi) return NextResponse.json({ error: 'Please sign in with Google.', code: 'NOT_AUTHENTICATED' }, { status: 401 });
+    if (isApi) return NextResponse.json({ error: 'Please sign in with your code and password.', code: 'NOT_AUTHENTICATED' }, { status: 401 });
     return NextResponse.redirect(new URL('/admin/login', req.url));
   }
-  const admins = (process.env.ADMIN_EMAILS ?? '')
+  const admins = `${process.env.ADMIN_CODES ?? ''},${process.env.ADMIN_EMAILS ?? ''}`
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
@@ -49,7 +49,7 @@ body{margin:0;min-height:100vh;display:grid;place-items:center;background:#060b1
 .card{max-width:28rem;padding:2rem;border-radius:1rem;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);text-align:center}
 h1{margin:0 0 .5rem;font-size:1.4rem}p{margin:0;color:#a9b6d3}a{display:inline-block;margin-top:1.5rem;color:#fff;background:#4d8dff;padding:.6rem 1.2rem;border-radius:12px;text-decoration:none;font-weight:600}
 </style></head><body><div class="card"><h1>403 — Administrators only</h1>
-<p>${safe} is signed in with Google but is not on the list of researchers for this experiment.</p>
+<p>${safe} is signed in but is not on the list of researchers for this experiment.</p>
 <a href="/dashboard">Go to my progress</a></div></body></html>`;
 }
 

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Card, Container, PageHeader } from '@/components/ui';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
+import SignInForm from '@/components/SignInForm';
 import { getSessionUser } from '@/lib/server/session';
 import LiveResults from './LiveResults';
 
@@ -25,7 +25,7 @@ export default async function ResultsPage() {
           <p className="font-medium">Sign in to view the results</p>
           <p className="mt-1 text-sm text-ink-2">The live results are available to everyone taking part.</p>
           <div className="mt-4">
-            <GoogleSignInButton label="Sign in with Google" reloadAfter />
+            <SignInForm reloadAfter initialMode="login" />
           </div>
         </Card>
       )}

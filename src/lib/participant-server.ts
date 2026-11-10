@@ -58,7 +58,7 @@ export function describeServerError(err: unknown): [{ error: string; code: strin
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
-  if (!user) throw new ApiFailure('NOT_AUTHENTICATED', 401, 'Please sign in with Google to continue.');
+  if (!user) throw new ApiFailure('NOT_AUTHENTICATED', 401, 'Please sign in with your code and password to continue.');
   return user;
 }
 

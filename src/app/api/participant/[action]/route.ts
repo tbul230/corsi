@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ action: st
       case 'register': {
         if (pid.startsWith('test_')) throw new X.ExperimentError('ALREADY_REGISTERED');
         const consent = (body.consent ?? {}) as Record<string, unknown>;
-        return NextResponse.json(await X.registerParticipant(pid, { consent }));
+        return NextResponse.json(await X.registerParticipant(pid, { consent, loginCode: user.email }));
       }
 
       case 'state': {

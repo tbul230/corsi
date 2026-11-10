@@ -228,7 +228,7 @@ async function reserveCode(tx: Transaction, prefix: 'P' | 'T', pid: string) {
 
 export async function registerParticipant(
   pid: string,
-  input: { consent: { participation?: unknown; quiet?: unknown; guidelines?: unknown } }
+  input: { consent: { participation?: unknown; quiet?: unknown; guidelines?: unknown }; loginCode?: string }
 ) {
   if (!(input.consent.participation === true && input.consent.quiet === true && input.consent.guidelines === true)) {
     throw new ExperimentError('CONSENT_REQUIRED');
@@ -239,7 +239,13 @@ export async function registerParticipant(
   await db().runTransaction(async (tx) => {
     const [pSnap, cSnap] = await Promise.all([tx.get(pRef), tx.get(cRef)]);
     if (pSnap.exists) throw new ExperimentError('ALREADY_REGISTERED');
-    const reserved = await reserveCode(tx, 'P', pid);
+    // Participants who signed up with a code keep that code (it was reserved for them at sign-up).
+    const own = input.loginCode ? db().collection('codes').doc(input.loginCode) : null;
+    const ownSnap = own ? await tx.get(own) : null;
+    const reserved =
+      own && ownSnap?.exists && ownSnap.get('participant_id') === pid
+        ? { code: input.loginCode!, ref: own, pid, existing: true }
+        : { ...(await reserveCode(tx, 'P', pid)), existing: false };
     // Counterbalancing: pick the least-used of the six condition orders (ties broken randomly).
     const counts = (cSnap.data()?.order_counts ?? {}) as Record<string, number>;
     const min = Math.min(...ORDERS.map((o) => counts[o.join('>')] ?? 0));
@@ -263,7 +269,7 @@ export async function registerParticipant(
       next_order: 1
     };
     tx.create(pRef, doc);
-    tx.create(reserved.ref, { participant_id: pid, created_at: now });
+    if (!reserved.existing) tx.create(reserved.ref, { participant_id: pid, created_at: now });
     tx.set(cRef, { order_counts: { [order.join('>')]: FieldValue.increment(1) } }, { merge: true });
   });
   return getParticipantState(pid);

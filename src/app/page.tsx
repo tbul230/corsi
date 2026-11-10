@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Container } from '@/components/ui';
 import { ArrowIcon, ConditionIcon } from '@/components/icons';
 import { CONDITIONS, CONDITION_INFO } from '@/lib/constants';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
+import SignInForm from '@/components/SignInForm';
 import AnonymityNote from '@/components/AnonymityNote';
 import { loadParticipantState } from '@/lib/participant-server';
 
@@ -66,7 +66,7 @@ export default async function Home() {
                   <ArrowIcon className="h-4 w-4" />
                 </Link>
               ) : (
-                <GoogleSignInButton label="Sign in with Google" />
+                <SignInForm />
               )}
               <AnonymityNote className="mt-4" />
               <p className="mt-3 text-sm text-ink-3">

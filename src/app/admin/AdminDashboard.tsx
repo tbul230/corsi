@@ -607,8 +607,8 @@ function ExportPanel() {
           {starting ? 'Starting…' : 'Start a test run'}
         </button>
         <p className="text-xs text-ink-3">
-          Administrators are the Google accounts listed in the ADMIN_EMAILS setting on Vercel. They sign in with Google;
-          there is no separate password.
+          Administrators are the codes listed in the ADMIN_CODES setting on Vercel. They sign in with their code and
+          password.
         </p>
       </div>
     </div>

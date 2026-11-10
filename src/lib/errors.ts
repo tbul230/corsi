@@ -1,6 +1,6 @@
 /** Maps database error codes (raised by the RPC functions) to participant-friendly messages. */
 export const ERROR_MESSAGES: Record<string, { status: number; message: string }> = {
-  NOT_AUTHENTICATED: { status: 401, message: 'Please sign in with Google to continue.' },
+  NOT_AUTHENTICATED: { status: 401, message: 'Please sign in with your code and password to continue.' },
   NOT_REGISTERED: { status: 403, message: 'Please complete registration first.' },
   ALREADY_REGISTERED: { status: 409, message: 'You are already registered.' },
   INVALID_NAME: {
@@ -9,7 +9,7 @@ export const ERROR_MESSAGES: Record<string, { status: number; message: string }>
   },
   DUPLICATE_NAME: {
     status: 409,
-    message: 'A participant with this name is already registered. If that is you, sign in with the Google account you used before.'
+    message: 'A participant with this name is already registered. If that is you, sign in with your code and password.'
   },
   CONSENT_REQUIRED: { status: 400, message: 'All three agreements must be accepted to take part.' },
   INVALID_CONDITION: { status: 400, message: 'Unknown break condition.' },

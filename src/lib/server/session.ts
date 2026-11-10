@@ -7,9 +7,9 @@ export const SESSION_COOKIE = 'corsi_session';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 export interface SessionUser {
-  /** Firebase UID — used only in memory (HMAC input and admin test prefix), never stored or logged. */
+  /** Account identity (acct:CODE) — used only in memory (HMAC input and admin test prefix), never stored or logged. */
   uid: string;
-  /** Verified Google email — used only for the admin allowlist check, never stored or logged. */
+  /** The sign-in code — used for the admin allowlist and to keep the same participant code. */
   email: string;
   /** Pseudonymous participant ID: HMAC-SHA256(uid), or an admin test-run participant. */
   pid: string;
@@ -22,9 +22,9 @@ function secret() {
   return new TextEncoder().encode(s);
 }
 
-/** Admin emails come from the ADMIN_EMAILS environment variable (comma separated). */
+/** Admins are the participant codes in ADMIN_CODES (comma separated). */
 export function adminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS ?? '')
+  return `${process.env.ADMIN_CODES ?? ''},${process.env.ADMIN_EMAILS ?? ''}`
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);

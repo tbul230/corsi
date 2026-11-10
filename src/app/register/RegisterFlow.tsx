@@ -4,14 +4,14 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, Card, Eyebrow } from '@/components/ui';
 import { ArrowIcon, CheckIcon } from '@/components/icons';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
+import SignInForm from '@/components/SignInForm';
 import AnonymityNote from '@/components/AnonymityNote';
 import { api, ApiError } from '@/lib/api';
 import { CONSENT_ITEMS } from '@/lib/constants';
 
 /**
  * Registration collects no identifying information: no name, email, student ID or free text.
- * Step 1 is Google sign-in (only to save progress); step 2 is the three consent agreements.
+ * Step 1 is code + password sign-in (only to save progress); step 2 is the three consent agreements.
  */
 export default function RegisterFlow({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
@@ -27,11 +27,11 @@ export default function RegisterFlow({ signedIn }: { signedIn: boolean }) {
           <Eyebrow>Step 1 of 2</Eyebrow>
           <h1 className="mt-1.5 text-[1.65rem] font-semibold sm:text-3xl">Sign in to take part</h1>
           <p className="mt-2 text-ink-2">
-            Sign in with Google so your three sessions stay together and you can continue on any device.
+            Choose a password and you'll get a random code. Use the code and password to come back for your other sessions, on any device.
           </p>
         </div>
         <Card className="space-y-4">
-          <GoogleSignInButton label="Sign in with Google" />
+          <SignInForm />
           <AnonymityNote />
         </Card>
       </div>
@@ -71,14 +71,14 @@ export default function RegisterFlow({ signedIn }: { signedIn: boolean }) {
             Only your experiment data, stored under a random code: your consent, which break you took and when, the break
             and test timestamps, every Corsi trial (the sequence shown, the blocks you tapped, whether it was correct and
             how long you took), whether you used touch or a mouse, and whether you left the break page. We do not store
-            your name, email, Google account details or any other personal information.
+            your name, email or any other personal information.
           </p>
         </div>
         <div>
           <h2 className="font-semibold text-ink">Who can see it</h2>
           <p className="muted">
             The researchers see your random code and results only. Nobody — including teachers and administrators — can
-            see who you are or link your results to your Google account.
+            see who you are or link your results to you.
           </p>
         </div>
         <div>

@@ -146,8 +146,8 @@ export default async function DashboardPage() {
             <p className="label">You are anonymous</p>
             <p className="mt-1 font-mono text-2xl font-semibold tracking-wider">{participant.code}</p>
             <p className="mt-2 text-sm text-ink-2">
-              Researchers only ever see this random code and your results — never your name or Google account. Google
-              sign-in is used only to save your progress, so sign in with the same account on any device to continue.
+              Researchers only ever see this random code and your results — never your name. This is also your sign-in
+              code: use it with your password on any device to continue.
             </p>
             {user.isAdmin ? (
               <Link href="/admin" className="btn btn-glass mt-4 w-full">Open admin dashboard</Link>

@@ -40,7 +40,7 @@ export default function LiveResults() {
   return (
     <>
       {error ? <div className="mb-4"><Alert>{error}</Alert></div> : null}
-      <ResultsCharts rows={data.sessions} totalParticipants={data.total_participants} />
+      <ResultsCharts rows={data.sessions} totalParticipants={data.total_participants} highlight="You" />
       <p className="mt-4 text-xs muted" aria-live="polite">
         Live · updated {new Date(data.generated_at).toLocaleTimeString()} · refreshes every 10 seconds
       </p>

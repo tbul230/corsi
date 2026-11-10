@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { describeAuthError, signInWithPassword, type SignInResult } from '@/lib/firebase/client';
 import { Alert } from './ui';
 
@@ -18,7 +17,6 @@ export default function SignInForm({
   reloadAfter?: boolean;
   initialMode?: 'signup' | 'login' | 'admin';
 }) {
-  const router = useRouter();
   const [mode, setMode] = useState<'signup' | 'login' | 'admin'>(initialMode);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -26,11 +24,10 @@ export default function SignInForm({
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<(SignInResult & { code: string }) | null>(null);
 
+  // A full page load (not client navigation) so no page cached while signed out is reused.
   function proceed(r: SignInResult) {
     if (reloadAfter) window.location.reload();
-    else if (adminTarget && r.isAdmin) router.push(adminTarget);
-    else router.push(r.next || (r.registered ? '/dashboard' : '/register'));
-    router.refresh();
+    else window.location.assign(adminTarget && r.isAdmin ? adminTarget : r.next || (r.registered ? '/dashboard' : '/register'));
   }
 
   async function submit(e: React.FormEvent) {

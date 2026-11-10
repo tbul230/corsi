@@ -15,7 +15,7 @@ export default async function ResultsPage() {
         <PageHeader
           eyebrow="Live experiment results"
           title="How do breaks affect Corsi span?"
-          description="Calculated directly from completed tests and refreshed automatically. Participants appear as anonymous codes. With small samples, treat differences as descriptive rather than conclusive."
+          description="Calculated directly from completed tests and refreshed automatically. Other participants appear as #1, #2… and your own results as “You”. With small samples, treat differences as descriptive rather than conclusive."
         />
       </div>
       {user ? (

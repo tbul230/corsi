@@ -7,6 +7,8 @@ export interface ResultRow {
   condition_order: number;
   corsi_span: number;
   accuracy: number | null;
+  /** ISO time the test finished (used for the over-time chart). */
+  completed_at?: string;
 }
 
 export interface ConditionSummary {
@@ -101,4 +103,28 @@ export function completeCasesOnly(rows: ResultRow[]) {
     counts.set(r.participant, s);
   }
   return rows.filter((r) => counts.get(r.participant)!.size === CONDITIONS.length);
+}
+
+/** How many tests ended at each span (0–9), per condition: the shape of the data, not just the mean. */
+export function spanDistribution(rows: ResultRow[]) {
+  return Array.from({ length: 10 }, (_, span) => {
+    const row: { span: number } & Partial<Record<Condition, number>> = { span };
+    for (const c of CONDITIONS) row[c] = rows.filter((r) => r.condition === c && Number(r.corsi_span) === span).length;
+    return row;
+  });
+}
+
+/** Running totals of completed tests and the running mean span, in completion order. */
+export function cumulativeTimeline(rows: ResultRow[]) {
+  const sorted = rows.filter((r) => r.completed_at).sort((a, b) => a.completed_at!.localeCompare(b.completed_at!));
+  let total = 0;
+  const sums = Object.fromEntries(CONDITIONS.map((c) => [c, { n: 0, sum: 0 }])) as Record<Condition, { n: number; sum: number }>;
+  return sorted.map((r) => {
+    total++;
+    sums[r.condition].n++;
+    sums[r.condition].sum += Number(r.corsi_span);
+    const point: { t: number; tests: number } & Partial<Record<Condition, number>> = { t: Date.parse(r.completed_at!), tests: total };
+    for (const c of CONDITIONS) if (sums[c].n) point[c] = round(sums[c].sum / sums[c].n) ?? undefined;
+    return point;
+  });
 }

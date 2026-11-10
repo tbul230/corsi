@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ResultsCharts from '@/components/ResultsCharts';
+import AdminCharts from './AdminCharts';
 import { Alert, Eyebrow, Stat, StatusPill } from '@/components/ui';
 import { ConditionIcon } from '@/components/icons';
 import { CONDITIONS, CONDITION_INFO, type Condition } from '@/lib/constants';
@@ -11,7 +12,7 @@ import type { ResultRow } from '@/lib/stats';
 import type { AdminData, AdminSession } from '@/lib/admin-data';
 import SignOutButton from './SignOutButton';
 
-type Tab = 'overview' | 'participants' | 'sessions' | 'integrity' | 'export' | 'deletions';
+type Tab = 'overview' | 'charts' | 'participants' | 'sessions' | 'integrity' | 'export' | 'deletions';
 
 const STATUS_LABEL: Record<string, string> = {
   break_in_progress: 'Break in progress',
@@ -107,7 +108,8 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
     condition: s.condition,
     condition_order: s.condition_order,
     corsi_span: s.corsi_span ?? 0,
-    accuracy: s.accuracy
+    accuracy: s.accuracy,
+    completed_at: s.test_completed_at ?? undefined
   }));
 
   const completionCounts = [0, 1, 2, 3].map(
@@ -116,6 +118,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
 
   const tabs: [Tab, string][] = [
     ['overview', 'Overview'],
+    ['charts', 'Live charts & images'],
     ['participants', `Participants (${participants.length})`],
     ['sessions', `Sessions (${sessions.length})`],
     ['integrity', `Unfinished & interruptions (${new Set([...unfinished, ...interrupted].map((s) => s.id)).size})`],
@@ -205,6 +208,8 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
           <ResultsCharts rows={rows} totalParticipants={participants.length} participantLabel="Code" />
         </div>
       ) : null}
+
+      {tab === 'charts' ? <AdminCharts includeTest={includeTest} /> : null}
 
       {tab === 'participants' ? (
         selectedParticipant ? (

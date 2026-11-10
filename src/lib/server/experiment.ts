@@ -584,13 +584,17 @@ export async function resetTestCondition(pid: string, condition: Condition) {
 }
 
 // ---------------------------------------------------------------- results
-export async function getPublicResults() {
+/**
+ * Completed results for the public charts. Participants are labelled #1, #2… in sign-up order — never by
+ * their code, because codes are also sign-in IDs. The viewer's own results are labelled "You".
+ */
+export async function getPublicResults(viewerPid?: string) {
   const [ps, ss] = await Promise.all([participants().get(), sessions().where('status', '==', 'completed').get()]);
   const real = ps.docs
     .map((d) => ({ id: d.id, ...(d.data() as ParticipantDoc) }))
     .filter((p) => !p.is_test)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const label = new Map(real.map((p) => [p.id, p.code]));
+  const label = new Map(real.map((p, i) => [p.id, p.id === viewerPid ? 'You' : `#${i + 1}`]));
   const rows = ss.docs
     .map((d) => d.data() as SessionDoc)
     .filter((s) => !s.is_test && label.has(s.participant_id))
@@ -604,11 +608,31 @@ export async function getPublicResults() {
       total_attempts: s.total_attempts ?? 0,
       completed_at: s.test_completed_at ?? ''
     }))
-    .sort((a, b) => a.participant.localeCompare(b.participant) || a.condition_order - b.condition_order);
+    .sort((a, b) => a.participant.localeCompare(b.participant, undefined, { numeric: true }) || a.condition_order - b.condition_order);
   return { total_participants: real.length, sessions: rows, generated_at: iso() };
 }
 
 // ---------------------------------------------------------------- admin
+/** Completed results labelled by participant code, for the admin's live, downloadable charts. */
+export async function getAdminResults(includeTest: boolean) {
+  const [ps, ss] = await Promise.all([participants().get(), sessions().where('status', '==', 'completed').get()]);
+  const people = ps.docs.map((d) => ({ id: d.id, ...(d.data() as ParticipantDoc) })).filter((p) => includeTest || !p.is_test);
+  const label = new Map(people.map((p) => [p.id, p.code]));
+  const rows = ss.docs
+    .map((d) => d.data() as SessionDoc)
+    .filter((s) => label.has(s.participant_id))
+    .map((s) => ({
+      participant: label.get(s.participant_id)!,
+      condition: s.condition,
+      condition_order: s.condition_order,
+      corsi_span: s.corsi_span ?? 0,
+      accuracy: s.accuracy,
+      completed_at: s.test_completed_at ?? ''
+    }))
+    .sort((a, b) => a.participant.localeCompare(b.participant, undefined, { numeric: true }) || a.condition_order - b.condition_order);
+  return { total_participants: people.length, sessions: rows, generated_at: iso() };
+}
+
 export async function getAdminData() {
   const [ps, ss, ts, es, dl] = await Promise.all([
     participants().get(),

@@ -1,44 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from 'recharts';
 import { CONDITIONS, CONDITION_INFO, type Condition } from '@/lib/constants';
-import {
-  overall,
-  participantMatrix,
-  summariseByCondition,
-  summariseByOrder,
-  type ResultRow
-} from '@/lib/stats';
+import { overall, participantMatrix, type ResultRow } from '@/lib/stats';
+import { CHARTS, DARK } from './charts/StudyCharts';
 import { Stat } from './ui';
-
-const AXIS = { stroke: 'rgba(220,232,255,0.55)', fontSize: 12 };
-const GRID = 'rgba(255,255,255,0.08)';
-const SURFACE = '#0a1430';
-
-const tooltipStyle = {
-  contentStyle: {
-    background: 'rgba(8,18,44,0.95)',
-    border: '1px solid rgba(255,255,255,0.18)',
-    borderRadius: 14,
-    color: '#f3f7ff',
-    boxShadow: '0 12px 30px rgba(0,0,0,0.5)'
-  },
-  labelStyle: { color: '#f3f7ff', fontWeight: 600, marginBottom: 4 },
-  itemStyle: { color: '#dce8ff' },
-  cursor: { fill: 'rgba(255,255,255,0.06)' }
-};
 
 function ChartCard({
   title,
@@ -60,22 +26,17 @@ function ChartCard({
   );
 }
 
-function Empty({ text }: { text: string }) {
-  return <div className="grid h-[260px] place-items-center rounded-2xl border border-dashed border-line-strong text-sm muted">{text}</div>;
-}
-
-function LegendText({ value }: { value: string }) {
-  return <span style={{ color: '#dce8ff', fontSize: 12 }}>{value}</span>;
-}
-
 export default function ResultsCharts({
   rows,
   totalParticipants,
-  participantLabel = 'Participant'
+  participantLabel = 'Participant',
+  highlight
 }: {
   rows: ResultRow[];
   totalParticipants: number;
   participantLabel?: string;
+  /** Label of the viewer's own results (e.g. "You"), emphasised in the charts. */
+  highlight?: string;
 }) {
   const [activeConditions, setActiveConditions] = useState<Condition[]>([...CONDITIONS]);
   const [participant, setParticipant] = useState<string>('all');
@@ -94,24 +55,12 @@ export default function ResultsCharts({
     [rows, activeConditions, participant]
   );
 
-  const byCondition = useMemo(
-    () => summariseByCondition(filtered).filter((s) => activeConditions.includes(s.condition)),
-    [filtered, activeConditions]
-  );
   const matrix = useMemo(() => participantMatrix(filtered), [filtered]);
   const totals = useMemo(() => overall(filtered), [filtered]);
-  const byOrder = useMemo(() => summariseByOrder(filtered), [filtered]);
 
-  const conditionData = byCondition.map((s) => ({
-    name: `${CONDITION_INFO[s.condition].short} (n=${s.n})`,
-    condition: s.condition,
-    meanSpan: s.meanSpan,
-    meanAccuracy: s.meanAccuracy,
-    sd: s.sdSpan,
-    n: s.n,
-    accuracyN: s.accuracyN,
-    fill: CONDITION_INFO[s.condition].accent
-  }));
+  // Clicking a bar focuses on that break type; clicking it again shows all three.
+  const pickCondition = (c: Condition) =>
+    setActiveConditions((cur) => (cur.length === 1 && cur[0] === c ? [...CONDITIONS] : [c]));
 
   const toggleCondition = (c: Condition) =>
     setActiveConditions((cur) =>
@@ -129,8 +78,6 @@ export default function ResultsCharts({
       </div>
     );
   }
-
-  const groupedWidth = Math.max(matrix.length * 70, 320);
 
   return (
     <div className="space-y-5" data-testid="results-charts">
@@ -178,117 +125,17 @@ export default function ResultsCharts({
         <Stat label="Average accuracy" value={totals.meanAccuracy != null ? `${totals.meanAccuracy}%` : '—'} />
       </div>
 
+      <p className="-mt-1 text-xs muted">Hover or tap a chart for exact values. Click a bar to focus on that break type; click it again to show all.</p>
+
       <div className="grid gap-5 lg:grid-cols-2">
-        <ChartCard
-          title="Average Corsi span by break type"
-          subtitle="Mean span (blocks). n = completed tests in each condition. Conditions without data show no bar — missing is not zero.">
-          <div className="h-[280px]">
-            <ResponsiveContainer>
-              <BarChart data={conditionData} margin={{ top: 24, right: 8, left: -12, bottom: 0 }} barCategoryGap="30%">
-                <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
-                <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, 9]} ticks={[0, 3, 6, 9]} />
-                <Tooltip
-                  {...tooltipStyle}
-                  formatter={(v, _n, item) => {
-                    const p = item.payload as { sd: number | null; n: number };
-                    return [v == null ? 'No data' : `${v} blocks${p.sd != null ? ` (SD ${p.sd})` : ''} · n=${p.n}`, 'Mean span'];
-                  }}
-                />
-                <Bar dataKey="meanSpan" radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={2} animationDuration={900} animationEasing="ease-out">
-                  {conditionData.map((d) => (
-                    <Cell key={d.condition} fill={d.fill} />
-                  ))}
-                  <LabelList dataKey="meanSpan" position="top" fill="#f3f7ff" fontSize={12} formatter={(v) => (v == null ? 'no data' : String(v))} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
-
-        <ChartCard
-          title="Accuracy comparison"
-          subtitle="Mean % of trials answered correctly in each condition (n shown per bar).">
-          <div className="h-[280px]">
-            <ResponsiveContainer>
-              <BarChart data={conditionData} margin={{ top: 24, right: 8, left: -12, bottom: 0 }} barCategoryGap="30%">
-                <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
-                <YAxis tick={AXIS} axisLine={false} tickLine={false} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} unit="%" />
-                <Tooltip
-                  {...tooltipStyle}
-                  formatter={(v, _n, item) => [
-                    v == null ? 'No data' : `${v}% · n=${(item.payload as { accuracyN: number }).accuracyN}`,
-                    'Mean accuracy'
-                  ]}
-                />
-                <Bar dataKey="meanAccuracy" radius={[4, 4, 0, 0]} stroke={SURFACE} strokeWidth={2} animationDuration={900} animationEasing="ease-out">
-                  {conditionData.map((d) => (
-                    <Cell key={d.condition} fill={d.fill} />
-                  ))}
-                  <LabelList dataKey="meanAccuracy" position="top" fill="#f3f7ff" fontSize={12} formatter={(v) => (v == null ? 'no data' : `${v}%`)} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartCard>
-      </div>
-
-      <ChartCard
-        title="Individual participant comparison"
-        subtitle="Each participant's Corsi span in every condition they have completed. A missing bar means that condition is not completed yet.">
-        {matrix.length === 0 ? (
-          <Empty text="No results match the current filters." />
-        ) : (
-          <div className="overflow-x-auto">
-            <div style={{ minWidth: groupedWidth }} className="h-[320px]">
-              <ResponsiveContainer>
-                <BarChart data={matrix} margin={{ top: 8, right: 8, left: -12, bottom: 0 }} barGap={2} barCategoryGap="22%">
-                  <CartesianGrid stroke={GRID} vertical={false} />
-                  <XAxis dataKey="participant" tick={AXIS} axisLine={false} tickLine={false} interval={0} />
-                  <YAxis tick={AXIS} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, 9]} ticks={[0, 3, 6, 9]} />
-                  <Tooltip
-                    {...tooltipStyle}
-                    formatter={(v, name) => [v == null ? 'Not completed' : `${v} blocks`, name]}
-                  />
-                  <Legend formatter={(value) => <LegendText value={String(value)} />} iconType="circle" />
-                  {activeConditions.map((c) => (
-                    <Bar
-                      key={c}
-                      dataKey={c}
-                      name={CONDITION_INFO[c].short}
-                      fill={CONDITION_INFO[c].accent}
-                      radius={[4, 4, 0, 0]}
-                      animationDuration={900} animationEasing="ease-out"
-                    />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
+        {CHARTS.map(({ id, title, caption, Chart, wide }) => (
+          <ChartCard key={id} title={title} subtitle={caption} className={wide ? 'lg:col-span-2' : ''}>
+            <div data-testid={`chart-${id}`}>
+              <Chart rows={filtered} palette={DARK} conditions={activeConditions} highlight={highlight} onPickCondition={pickCondition} />
             </div>
-          </div>
-        )}
-      </ChartCard>
-
-      <ChartCard
-        title="Practice-effect check: span by completion order"
-        subtitle="Mean span on participants' 1st, 2nd and 3rd condition, regardless of break type. A rising trend suggests practice effects.">
-        <div className="h-[220px]">
-          <ResponsiveContainer>
-            <BarChart
-              data={byOrder.map((o) => ({ name: `${['1st', '2nd', '3rd'][o.order - 1]} (n=${o.n})`, meanSpan: o.meanSpan }))}
-              margin={{ top: 24, right: 8, left: -12, bottom: 0 }}
-              barCategoryGap="35%">
-              <CartesianGrid stroke={GRID} vertical={false} />
-              <XAxis dataKey="name" tick={AXIS} axisLine={false} tickLine={false} />
-              <YAxis tick={AXIS} axisLine={false} tickLine={false} domain={[0, 9]} ticks={[0, 3, 6, 9]} />
-              <Tooltip {...tooltipStyle} formatter={(v) => [v == null ? 'No data' : `${v} blocks`, 'Mean span']} />
-              <Bar dataKey="meanSpan" fill="#8ec5ff" radius={[4, 4, 0, 0]} animationDuration={900} animationEasing="ease-out">
-                <LabelList dataKey="meanSpan" position="top" fill="#f3f7ff" fontSize={12} formatter={(v) => (v == null ? 'no data' : String(v))} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </ChartCard>
+          </ChartCard>
+        ))}
+      </div>
 
       <div>
         <button className="btn btn-glass text-sm" onClick={() => setShowTable((s) => !s)} aria-expanded={showTable}>

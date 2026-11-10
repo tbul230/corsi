@@ -38,7 +38,9 @@ export default function SignInForm({
     setBusy(true);
     setError(null);
     try {
-      const r = (await signInWithPassword(code, password, mode)) as SignInResult & { code: string };
+      // Read what is actually in the fields (covers browser autofill and typing before the page finished loading).
+      const f = new FormData(e.currentTarget as HTMLFormElement);
+      const r = (await signInWithPassword(String(f.get('code') ?? code), String(f.get('password') ?? password), mode)) as SignInResult & { code: string };
       if (mode === 'signup') {
         setCreated(r);
         setBusy(false);
@@ -67,7 +69,7 @@ export default function SignInForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3 text-left">
+    <form onSubmit={submit} method="post" className="space-y-3 text-left">
       {mode === 'admin' ? null : (<div className="glass-soft grid grid-cols-2 gap-1 rounded-xl p-1 text-sm" role="tablist">
         {(['signup', 'login'] as const).map((m) => (
           <button
@@ -92,6 +94,7 @@ export default function SignInForm({
             className="input font-mono uppercase"
             value={code}
             onChange={(e) => setCode(e.target.value)}
+            name="code"
             placeholder="P-7F3K"
             autoComplete="username"
             autoCapitalize="characters"
@@ -105,6 +108,7 @@ export default function SignInForm({
         <input
           className="input"
           type="password"
+          name="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           minLength={mode === 'admin' ? 1 : 6}

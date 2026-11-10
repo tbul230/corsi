@@ -16,10 +16,10 @@ export default function SignInForm({
 }: {
   adminTarget?: string;
   reloadAfter?: boolean;
-  initialMode?: 'signup' | 'login';
+  initialMode?: 'signup' | 'login' | 'admin';
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<'signup' | 'login'>(initialMode);
+  const [mode, setMode] = useState<'signup' | 'login' | 'admin'>(initialMode);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -68,7 +68,7 @@ export default function SignInForm({
 
   return (
     <form onSubmit={submit} className="space-y-3 text-left">
-      <div className="glass-soft grid grid-cols-2 gap-1 rounded-xl p-1 text-sm" role="tablist">
+      {mode === 'admin' ? null : (<div className="glass-soft grid grid-cols-2 gap-1 rounded-xl p-1 text-sm" role="tablist">
         {(['signup', 'login'] as const).map((m) => (
           <button
             key={m}
@@ -84,7 +84,7 @@ export default function SignInForm({
             {m === 'signup' ? 'New participant' : 'I have a code'}
           </button>
         ))}
-      </div>
+      </div>)}
       {mode === 'login' ? (
         <label className="block text-sm">
           <span className="mb-1 block text-ink-2">Your code</span>
@@ -101,13 +101,13 @@ export default function SignInForm({
         </label>
       ) : null}
       <label className="block text-sm">
-        <span className="mb-1 block text-ink-2">{mode === 'signup' ? 'Choose a password' : 'Password'}</span>
+        <span className="mb-1 block text-ink-2">{mode === 'signup' ? 'Choose a password' : mode === 'admin' ? 'Admin password' : 'Password'}</span>
         <input
           className="input"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          minLength={6}
+          minLength={mode === 'admin' ? 1 : 6}
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
           required
           data-testid="password-input"

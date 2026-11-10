@@ -30,8 +30,13 @@ export function adminEmails(): string[] {
     .filter(Boolean);
 }
 
+/** Cookie identity issued only after the ADMIN_PASSWORD check (participant codes always look like P-XXXX). */
+export const ADMIN_LOGIN = 'admin';
+
 export function isAdminEmail(email: string | null | undefined) {
-  return Boolean(email) && adminEmails().includes(email!.toLowerCase());
+  if (!email) return false;
+  const e = email.toLowerCase();
+  return e === ADMIN_LOGIN || adminEmails().includes(e);
 }
 
 /** Session cookie: signed, httpOnly, lives only in the participant's own browser. `pid` is set only for admin test runs. */

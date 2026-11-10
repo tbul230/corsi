@@ -607,8 +607,7 @@ function ExportPanel() {
           {starting ? 'Starting…' : 'Start a test run'}
         </button>
         <p className="text-xs text-ink-3">
-          Administrators are the codes listed in the ADMIN_CODES setting on Vercel. They sign in with their code and
-          password.
+          Administrators sign in at /admin/login with the admin password (the ADMIN_PASSWORD setting on Vercel).
         </p>
       </div>
     </div>

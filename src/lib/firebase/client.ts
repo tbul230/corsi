@@ -3,7 +3,7 @@
 export type SignInResult = { isAdmin: boolean; registered: boolean; next: string };
 
 /** Signs in or creates an account; the server sets an httpOnly session cookie. */
-export async function signInWithPassword(username: string, password: string, mode: 'login' | 'signup'): Promise<SignInResult> {
+export async function signInWithPassword(username: string, password: string, mode: 'login' | 'signup' | 'admin'): Promise<SignInResult> {
   const res = await fetch('/api/auth/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

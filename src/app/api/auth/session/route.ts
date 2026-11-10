@@ -1,8 +1,9 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { checkPassword, CODE_RE, createAccount, normalizeCode, uidFor } from '@/lib/server/accounts';
 import { participantIdFor } from '@/lib/server/pseudonym';
 import { getParticipantState } from '@/lib/server/experiment';
-import { clearSessionCookie, isAdminEmail, setSessionCookie } from '@/lib/server/session';
+import { ADMIN_LOGIN, clearSessionCookie, isAdminEmail, setSessionCookie } from '@/lib/server/session';
 import { errorResponse } from '@/lib/participant-server';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const password = typeof body.password === 'string' ? body.password : '';
-    if (password.length < 6 || password.length > 200) return fail('Passwords must be at least 6 characters.', 400, 'BAD_PASSWORD');
+    if (body.mode !== 'admin' && password.length < 6 || password.length > 200) return fail('Passwords must be at least 6 characters.', 400, 'BAD_PASSWORD');
+
+    if (body.mode === 'admin') {
+      const expected = process.env.ADMIN_PASSWORD ?? '';
+      const a = Buffer.from(password);
+      const b = Buffer.from(expected);
+      if (!expected || a.length !== b.length || !timingSafeEqual(a, b)) return fail('Wrong admin password.', 401, 'BAD_LOGIN');
+      await setSessionCookie({ uid: 'admin', email: ADMIN_LOGIN });
+      return NextResponse.json({ isAdmin: true, registered: false, next: '/admin' });
+    }
 
     let code: string;
     if (body.mode === 'signup') {

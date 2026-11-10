@@ -22,11 +22,11 @@ export default async function AdminLoginPage() {
             <Eyebrow>Administrators only</Eyebrow>
             <h1 className="mt-1 text-2xl font-semibold">Researcher login</h1>
             <p className="mt-2 text-sm text-ink-2">
-              Sign in with your researcher code and password.
+              Enter the admin password.
             </p>
           </div>
           <div className="mt-6">
-            <SignInForm adminTarget="/admin" initialMode="login" />
+            <SignInForm adminTarget="/admin" initialMode="admin" />
           </div>
           {user && !user.isAdmin ? (
             <p className="mt-4 text-sm text-amber-200">

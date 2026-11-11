@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { describeAuthError, signInWithPassword, type SignInResult } from '@/lib/firebase/client';
+import { recaptchaEnabled } from '@/lib/recaptcha';
+import RecaptchaBox, { type RecaptchaHandle } from './RecaptchaBox';
 import { Alert } from './ui';
 
 /**
@@ -22,6 +24,8 @@ export default function SignInForm({
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captcha, setCaptcha] = useState('');
+  const captchaBox = useRef<RecaptchaHandle>(null);
   const [created, setCreated] = useState<(SignInResult & { code: string }) | null>(null);
 
   // A full page load (not client navigation) so no page cached while signed out is reused.
@@ -37,13 +41,14 @@ export default function SignInForm({
     try {
       // Read what is actually in the fields (covers browser autofill and typing before the page finished loading).
       const f = new FormData(e.currentTarget as HTMLFormElement);
-      const r = (await signInWithPassword(String(f.get('code') ?? code), String(f.get('password') ?? password), mode)) as SignInResult & { code: string };
+      const r = (await signInWithPassword(String(f.get('code') ?? code), String(f.get('password') ?? password), mode, captcha)) as SignInResult & { code: string };
       if (mode === 'signup') {
         setCreated(r);
         setBusy(false);
       } else proceed(r);
     } catch (err) {
       setError(describeAuthError(err));
+      captchaBox.current?.reset(); // tokens are single-use
       setBusy(false);
     }
   }
@@ -115,7 +120,8 @@ export default function SignInForm({
         />
       </label>
       {mode === 'signup' ? <p className="text-xs text-ink-3">At least 6 characters. You&apos;ll be given a code to sign in with.</p> : null}
-      <button type="submit" className="btn btn-primary w-full" disabled={busy} data-testid="signin-submit">
+      <RecaptchaBox ref={captchaBox} onToken={setCaptcha} />
+      <button type="submit" className="btn btn-primary w-full" disabled={busy || (recaptchaEnabled && !captcha)} data-testid="signin-submit">
         {busy ? 'Please wait…' : mode === 'signup' ? 'Get my code' : 'Sign in'}
       </button>
       {error ? <Alert>{error}</Alert> : null}

@@ -5,6 +5,7 @@ import { participantIdFor } from '@/lib/server/pseudonym';
 import { getParticipantState } from '@/lib/server/experiment';
 import { ADMIN_LOGIN, clearSessionCookie, isAdminEmail, setSessionCookie } from '@/lib/server/session';
 import { errorResponse } from '@/lib/participant-server';
+import { verifyRecaptcha } from '@/lib/server/recaptcha';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const password = typeof body.password === 'string' ? body.password : '';
     if (body.mode !== 'admin' && password.length < 6 || password.length > 200) return fail('Passwords must be at least 6 characters.', 400, 'BAD_PASSWORD');
+
+    const mode = body.mode === 'admin' ? 'admin' : body.mode === 'signup' ? 'signup' : 'login';
+    await verifyRecaptcha(body.recaptchaToken, mode);
 
     if (body.mode === 'admin') {
       const expected = process.env.ADMIN_PASSWORD ?? '';

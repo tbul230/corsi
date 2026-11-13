@@ -15,6 +15,9 @@ function stamp(d = new Date()) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
 
+/** Waits until the browser has painted the latest chart state (two animation frames). */
+const painted = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
 /** Renders a chart frame to a PNG at 2× resolution. Buttons (class "no-export") are left out of the image. */
 function renderOptions(p: ChartPalette) {
   return {
@@ -65,6 +68,7 @@ export default function AdminCharts({ includeTest }: { includeTest: boolean }) {
     if (!el) return;
     setBusy(id);
     try {
+      await painted();
       const url = await toPng(el, renderOptions(palette));
       const a = document.createElement('a');
       a.href = url;
@@ -80,14 +84,21 @@ export default function AdminCharts({ includeTest }: { includeTest: boolean }) {
   async function copy(id: string) {
     const el = frames.current.get(id);
     if (!el) return;
+    if (!('ClipboardItem' in window) || !navigator.clipboard?.write) {
+      note('Copying images is not supported in this browser. Use PNG instead.');
+      return;
+    }
     setBusy(id);
     try {
-      const blob = await toBlob(el, renderOptions(palette));
-      if (!blob || !('ClipboardItem' in window)) throw new Error();
+      // The ClipboardItem must be created right away (Safari requires it inside the click); the image fills in after.
+      const blob = painted().then(() => toBlob(el, renderOptions(palette))).then((b) => {
+        if (!b) throw new Error('empty image');
+        return b;
+      });
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       note('Chart copied — paste it into your slides or document.');
     } catch {
-      note('Copying images is not supported in this browser. Use Download instead.');
+      note('Could not copy the image (your browser may have blocked clipboard access). Use PNG instead.');
     } finally {
       setBusy(null);
     }
@@ -182,7 +193,7 @@ export default function AdminCharts({ includeTest }: { includeTest: boolean }) {
                 </div>
               </div>
               <div className="mt-4">
-                <Chart rows={rows} palette={palette} />
+                <Chart rows={rows} palette={palette} animate={false} />
               </div>
               <p className="mt-3 text-[11px]" style={{ color: palette.muted }}>
                 {footer}

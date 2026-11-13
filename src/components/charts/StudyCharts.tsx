@@ -72,9 +72,12 @@ export interface ChartProps {
   /** Clicking a condition's bar calls this (used for click-to-filter). */
   onPickCondition?: (c: Condition) => void;
   height?: number;
+  /** Grow-in animation. Off for exported charts: labels are hidden while an animation runs. */
+  animate?: boolean;
 }
 
-const ANIM = { animationDuration: 800, animationEasing: 'ease-out' as const };
+const anim = (on: boolean) =>
+  on ? { animationDuration: 800, animationEasing: 'ease-out' as const } : { isAnimationActive: false as const };
 
 function axis(p: ChartPalette) {
   return { stroke: p.muted, fontSize: 12, fill: p.muted };
@@ -118,7 +121,7 @@ function conditionSummaryData(rows: ResultRow[], conditions: Condition[]) {
 }
 
 /** Mean span per break type, with ±1 SD error bars. */
-export function MeanSpanChart({ rows, palette: p, conditions = [...CONDITIONS], onPickCondition, height = 280 }: ChartProps) {
+export function MeanSpanChart({ rows, palette: p, animate = true, conditions = [...CONDITIONS], onPickCondition, height = 280 }: ChartProps) {
   const data = conditionSummaryData(rows, conditions);
   return (
     <div style={{ height }}>
@@ -137,14 +140,14 @@ export function MeanSpanChart({ rows, palette: p, conditions = [...CONDITIONS], 
           <Bar
             dataKey="meanSpan"
             radius={[4, 4, 0, 0]}
-            {...ANIM}
+            {...anim(animate)}
             cursor={onPickCondition ? 'pointer' : undefined}
             onClick={(d) => onPickCondition?.((d as unknown as { condition: Condition }).condition)}>
             {data.map((d) => (
               <Cell key={d.condition} fill={CONDITION_INFO[d.condition].accent} />
             ))}
             <ErrorBar dataKey="sd" width={6} strokeWidth={1.5} stroke={p.muted} direction="y" />
-            <LabelList dataKey="meanSpan" position="insideTop" fill="#fff" fontSize={12} fontWeight={600} formatter={(v) => (v == null ? '' : String(v))} />
+            <LabelList dataKey="meanSpan" position="insideBottom" offset={10} fill="#fff" fontSize={13} fontWeight={700} formatter={(v) => (v == null ? '' : String(v))} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -153,7 +156,7 @@ export function MeanSpanChart({ rows, palette: p, conditions = [...CONDITIONS], 
 }
 
 /** Mean % of trials correct per break type. */
-export function AccuracyChart({ rows, palette: p, conditions = [...CONDITIONS], onPickCondition, height = 280 }: ChartProps) {
+export function AccuracyChart({ rows, palette: p, animate = true, conditions = [...CONDITIONS], onPickCondition, height = 280 }: ChartProps) {
   const data = conditionSummaryData(rows, conditions);
   return (
     <div style={{ height }}>
@@ -169,7 +172,7 @@ export function AccuracyChart({ rows, palette: p, conditions = [...CONDITIONS], 
           <Bar
             dataKey="meanAccuracy"
             radius={[4, 4, 0, 0]}
-            {...ANIM}
+            {...anim(animate)}
             cursor={onPickCondition ? 'pointer' : undefined}
             onClick={(d) => onPickCondition?.((d as unknown as { condition: Condition }).condition)}>
             {data.map((d) => (
@@ -184,7 +187,7 @@ export function AccuracyChart({ rows, palette: p, conditions = [...CONDITIONS], 
 }
 
 /** Each participant's span in each condition (grouped bars). */
-export function ParticipantChart({ rows, palette: p, conditions = [...CONDITIONS], highlight, height = 320 }: ChartProps) {
+export function ParticipantChart({ rows, palette: p, animate = true, conditions = [...CONDITIONS], highlight, height = 320 }: ChartProps) {
   const matrix = participantMatrix(rows);
   const width = Math.max(matrix.length * 70, 320);
   return (
@@ -217,7 +220,7 @@ export function ParticipantChart({ rows, palette: p, conditions = [...CONDITIONS
             <Tooltip {...tooltip(p)} formatter={(v, name) => [v == null ? 'Not completed' : `${v} blocks`, name]} />
             <Legend {...legend(p)} />
             {conditions.map((c) => (
-              <Bar key={c} dataKey={c} name={CONDITION_INFO[c].short} fill={CONDITION_INFO[c].accent} radius={[4, 4, 0, 0]} {...ANIM} />
+              <Bar key={c} dataKey={c} name={CONDITION_INFO[c].short} fill={CONDITION_INFO[c].accent} radius={[4, 4, 0, 0]} {...anim(animate)} />
             ))}
           </BarChart>
         </ResponsiveContainer>
@@ -227,7 +230,7 @@ export function ParticipantChart({ rows, palette: p, conditions = [...CONDITIONS
 }
 
 /** One line per participant across the three breaks, plus the group mean: shows within-person change. */
-export function WithinPersonChart({ rows, palette: p, conditions = [...CONDITIONS], highlight, height = 300 }: ChartProps) {
+export function WithinPersonChart({ rows, palette: p, animate = true, conditions = [...CONDITIONS], highlight, height = 300 }: ChartProps) {
   const matrix = participantMatrix(rows);
   const means = summariseByCondition(rows);
   const data = conditions.map((c) => {
@@ -264,7 +267,7 @@ export function WithinPersonChart({ rows, palette: p, conditions = [...CONDITION
               />
             );
           })}
-          <Line dataKey="Mean" stroke={p.neutral} strokeWidth={3.5} strokeDasharray="7 4" dot={{ r: 5, fill: p.neutral, strokeWidth: 0 }} {...ANIM} />
+          <Line dataKey="Mean" stroke={p.neutral} strokeWidth={3.5} strokeDasharray="7 4" dot={{ r: 5, fill: p.neutral, strokeWidth: 0 }} {...anim(animate)} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -272,7 +275,7 @@ export function WithinPersonChart({ rows, palette: p, conditions = [...CONDITION
 }
 
 /** How many tests ended at each span, per condition. */
-export function DistributionChart({ rows, palette: p, conditions = [...CONDITIONS], height = 280 }: ChartProps) {
+export function DistributionChart({ rows, palette: p, animate = true, conditions = [...CONDITIONS], height = 280 }: ChartProps) {
   const data = spanDistribution(rows);
   const max = Math.max(1, ...data.flatMap((d) => conditions.map((c) => d[c] ?? 0)));
   const last = Math.max(4, ...rows.map((r) => Number(r.corsi_span))) + 1;
@@ -286,7 +289,7 @@ export function DistributionChart({ rows, palette: p, conditions = [...CONDITION
           <Tooltip {...tooltip(p)} labelFormatter={(l) => `Span ${l}`} formatter={(v, name) => [`${v} test${v === 1 ? '' : 's'}`, name]} />
           <Legend {...legend(p)} verticalAlign="top" height={28} />
           {conditions.map((c) => (
-            <Bar key={c} dataKey={c} name={CONDITION_INFO[c].short} fill={CONDITION_INFO[c].accent} radius={[3, 3, 0, 0]} {...ANIM} />
+            <Bar key={c} dataKey={c} name={CONDITION_INFO[c].short} fill={CONDITION_INFO[c].accent} radius={[3, 3, 0, 0]} {...anim(animate)} />
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -295,7 +298,7 @@ export function DistributionChart({ rows, palette: p, conditions = [...CONDITION
 }
 
 /** Mean span by completion position (1st, 2nd, 3rd condition): practice effects. */
-export function OrderChart({ rows, palette: p, height = 240 }: ChartProps) {
+export function OrderChart({ rows, palette: p, animate = true, height = 240 }: ChartProps) {
   const data = summariseByOrder(rows).map((o) => ({ name: `${['1st', '2nd', '3rd'][o.order - 1]} (n=${o.n})`, meanSpan: o.meanSpan }));
   return (
     <div style={{ height }}>
@@ -305,7 +308,7 @@ export function OrderChart({ rows, palette: p, height = 240 }: ChartProps) {
           <XAxis dataKey="name" tick={axis(p)} axisLine={false} tickLine={false} />
           <YAxis tick={axis(p)} axisLine={false} tickLine={false} domain={[0, 9]} ticks={[0, 3, 6, 9]} />
           <Tooltip {...tooltip(p)} formatter={(v) => [v == null ? 'No data' : `${v} blocks`, 'Mean span']} />
-          <Bar dataKey="meanSpan" fill={p.neutral} radius={[4, 4, 0, 0]} {...ANIM}>
+          <Bar dataKey="meanSpan" fill={p.neutral} radius={[4, 4, 0, 0]} {...anim(animate)}>
             <LabelList dataKey="meanSpan" position="top" fill={p.text} fontSize={12} formatter={(v) => (v == null ? 'no data' : String(v))} />
           </Bar>
         </BarChart>
@@ -315,7 +318,7 @@ export function OrderChart({ rows, palette: p, height = 240 }: ChartProps) {
 }
 
 /** Running mean span per condition as tests come in, with the running test count. */
-export function TimelineChart({ rows, palette: p, conditions = [...CONDITIONS], height = 280 }: ChartProps) {
+export function TimelineChart({ rows, palette: p, animate = true, conditions = [...CONDITIONS], height = 280 }: ChartProps) {
   const data = cumulativeTimeline(rows);
   const span = data.length ? data[data.length - 1].t - data[0].t : 0;
   const fmt = (t: number) =>
@@ -337,9 +340,9 @@ export function TimelineChart({ rows, palette: p, conditions = [...CONDITIONS], 
             formatter={(v, name) => [name === 'Tests completed' ? String(v) : `${v} blocks`, name]}
           />
           <Legend {...legend(p)} verticalAlign="top" height={28} />
-          <Line yAxisId="n" dataKey="tests" name="Tests completed" stroke={p.muted} strokeDasharray="3 3" dot={false} type="stepAfter" {...ANIM} />
+          <Line yAxisId="n" dataKey="tests" name="Tests completed" stroke={p.muted} strokeDasharray="3 3" dot={false} type="stepAfter" {...anim(animate)} />
           {conditions.map((c) => (
-            <Line key={c} yAxisId="span" dataKey={c} name={`${CONDITION_INFO[c].short} mean`} stroke={CONDITION_INFO[c].accent} strokeWidth={2.5} dot={false} connectNulls {...ANIM} />
+            <Line key={c} yAxisId="span" dataKey={c} name={`${CONDITION_INFO[c].short} mean`} stroke={CONDITION_INFO[c].accent} strokeWidth={2.5} dot={false} connectNulls {...anim(animate)} />
           ))}
         </LineChart>
       </ResponsiveContainer>

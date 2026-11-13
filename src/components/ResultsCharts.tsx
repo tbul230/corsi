@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { CONDITIONS, CONDITION_INFO, type Condition } from '@/lib/constants';
 import { overall, participantMatrix, type ResultRow } from '@/lib/stats';
 import { CHARTS, DARK } from './charts/StudyCharts';
+import PValueCalculator from './PValueCalculator';
 import { Stat } from './ui';
 
 function ChartCard({
@@ -136,6 +137,9 @@ export default function ResultsCharts({
           </ChartCard>
         ))}
       </div>
+
+      {/* Significance tests use every participant (not the participant filter), for the selected break types. */}
+      <PValueCalculator rows={rows} conditions={activeConditions} />
 
       <div>
         <button className="btn btn-glass text-sm" onClick={() => setShowTable((s) => !s)} aria-expanded={showTable}>

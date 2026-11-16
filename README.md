@@ -1,40 +1,128 @@
-# Corsi Task
+# The Corsi Block-Tapping Experiment
 
-Corsi task is a psychological test that is used to measure your visual-spatial short-term working memory. In this test, you have to mark the blocks that change color in order on the screen in the same order. The block sequence starts simple, but it gets more complex until your performance drops. This game shows how well your brain processes and stores visual information. In our application, the number of blocks will always remain the same, but the number of blocks you need to mark will increase up to 9. This way, you can also test your backward memory ability.
+A research web app that measures **visuospatial short-term memory (Corsi span)** after three kinds of 15-minute break, using a within-subjects design:
 
-## Run Locally
+| Condition | What participants do for 15 minutes |
+|---|---|
+| 🎮 Video Game Break | Play their favorite video game |
+| ▶️ YouTube Break | Watch YouTube |
+| ☕ No-Screen Break | Rest without any electronic screens |
 
-Clone the project
+Every participant completes each condition **exactly once**, in any (counterbalanced) order. The **break always comes first**, followed immediately by the Corsi test, and every result is saved to Firebase (Cloud Firestore) and charted live.
+
+> This is an experimental implementation of a Corsi-style task. It is **not** a validated clinical or diagnostic assessment.
+
+## Participant flow
+
+1. **Start** → **Sign in with Google** (Firebase Authentication). Everyone must sign in; there are no passwords or access codes.
+2. **Consent** (three required agreements and a plain-language explanation of what is collected, who sees it and how it is used). No name or other identifying information is asked for.
+3. **Choose a break** → three cards; completed conditions are disabled with a COMPLETED badge and the previous score
+4. **15-minute break** → a real countdown computed from server timestamps (survives refresh, background tabs and closing the browser; cannot be paused, reset or skipped; the server refuses an early test)
+5. **Corsi test** → 3×3 grid, server-generated sequences, fixed timing, stopping rule
+6. **Results** → span, longest correct sequence, correct/incorrect trials, accuracy, test and break duration, completion time, trial-by-trial table
+7. **Dashboard** → progress (e.g. *2 of 3 conditions completed*), resume an unfinished break, completion message after all three. Signing in with the same Google account on any device continues where you left off.
+
+## Corsi task parameters
+
+| Parameter | Value |
+|---|---|
+| Blocks | 9, fixed 3×3 grid |
+| Block lit / gap / lead-in | 1000 ms / 500 ms / 1000 ms |
+| Start length | 2 blocks, +1 after each correct trial (max 9) |
+| Sequences | random, generated in the database, no repeated block within a sequence |
+| Stopping rule | two failed attempts at the same length (or success at length 9) |
+| Corsi span | longest length reproduced correctly (0 if none) |
+| Also recorded | total score (span × correct), accuracy, per-trial sequence, response, correctness and response time |
+
+## Pages
+
+| Route | Purpose |
+|---|---|
+| `/` | Landing page |
+| `/register` | New/returning participant + consent |
+| `/dashboard` | Participant progress |
+| `/select` | Break-condition cards |
+| `/session/[id]` | Break timer → Corsi test → results (state-driven, refresh-safe) |
+| `/results` | Anonymised live charts for signed-in users (auto-refresh every 10 s) |
+| `/methodology` | Full procedure for reporting/replication |
+| `/admin` | Researcher dashboard (Google sign-in, admin emails only) |
+| `/admin/login` | Google sign-in for researchers |
+
+Charts: average span by break type (with *n*), individual participant comparison (grouped bars), accuracy comparison, overall stats, and a practice-effect check (span by completion order). Missing conditions are never plotted as zero. Filters for condition and participant, plus a table view.
+
+Admin dashboard: all participants, per-participant detail with exact break/test timestamps, trial-by-trial data, completion statistics, unfinished sessions, interrupted breaks, and CSV export (sessions, trials, participants, break events).
+
+## Anonymity
+
+Participation is anonymous: nobody, admins included, can tie results to a person.
+
+- All participant data is keyed by `participantId = HMAC-SHA256(firebaseUid, PARTICIPANT_ID_SECRET)`. The secret exists only in the server environment, so database or export access is not enough to map an ID back to a Google account. The same Google account always gives the same ID, so progress resumes across devices.
+- Firestore never stores a Firebase UID, email, display name or photo URL. People appear only as a random code such as `P-7F3K` (admin test runs: `T-XXXX`).
+- Registration asks no identifying questions. The data kept for the analysis is consent and its time, the counterbalanced order, each session's break and test timestamps, the trial records and coarse input type (touch or mouse), and break-page events.
+- The admin dashboard, CSV exports and results charts show codes only. Logs record a request reference and error type, never an email, UID or name.
+- Admin access is still decided per request from the Google email in the session cookie against `ADMIN_EMAILS`. Admin emails are never written to participant data. Deletions record which admin performed them, in the separate admin-only deletion log.
+- Residual risk: Firebase Authentication's own user list (outside Firestore) still holds the Google accounts that signed in; it contains no results. Exact timestamps could in theory be matched against who was seen taking part at a given time.
+
+## Admin tools
+
+**Administrators** are the Google accounts listed in the `ADMIN_EMAILS` environment variable. They sign in with Google at `/admin` like everyone else and are recognised automatically, with no password and no code.
+
+**Test mode**: in the admin dashboard (*Export & account* → *Start a test run*), an admin becomes a throw-away "Admin Test ###" participant. Breaks can be skipped and conditions redone; test runs are flagged `is_test` and excluded from the public results, charts, statistics and CSV exports (admins can show them with a toggle).
+
+**Deleting data**: admins can delete a participant (with all attempts and trials) or a single attempt. Every deletion is written to `deletion_log` with a JSON snapshot of what was removed.
+
+## Architecture & data integrity
+
+- **Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Recharts**, deployed on **Vercel**.
+- **Firebase** project `corsitask`: **Authentication** (Google sign-in) and **Cloud Firestore**.
+- **Google sign-in is the only way in.** No passwords, access codes or admin codes exist anywhere. Signed-out visitors are sent to the Google sign-in button and every API returns 401.
+- The browser only signs in with Google. It sends the Firebase ID token once to `/api/auth/session`, where the server verifies it with the **Firebase Admin SDK** (Google provider + verified email required) and issues a signed, httpOnly session cookie.
+- `src/proxy.ts` guards every `/admin` page and `/api/admin` route before any admin code runs: signed out → Google sign-in (APIs 401); signed in but not in `ADMIN_EMAILS` → 403. The email comes from the verified Firebase ID token (Google provider, `email_verified`), never from the browser.
+- Server failures are logged with a short reference and shown to the user as a specific message (database unavailable, configuration problem, try again), never a generic error.
+- **All reads and writes go through the Next.js server using the Admin SDK.** `firestore.rules` denies every client read/write, so nobody can touch the database directly from a browser.
+- All experiment rules run on the server inside Firestore transactions (`src/lib/server/experiment.ts`):
+  - one session document per participant per condition (`sessions/{participant}__{condition}`), so a condition can never be repeated
+  - only one condition in progress at a time
+  - break end = start + 15 min; the test is refused before then
+  - sequences, correctness and all scores are computed by the server
+  - completed results are never modified; only admins can delete, and every deletion is logged
+
+Firestore layout: `participants/{hmacId}`, `codes/{code}` (unique anonymous codes), `sessions/{id}` with `trials/` and `events/` sub-collections, `deletion_log/`, `meta/counters` (counterbalancing).
+
+## Local development
 
 ```bash
-  git clone https://github.com/OnderCataltepe/corsi.git
+npm install
+cp .env.example .env.local      # fill in the values
+npm run dev
 ```
 
-Go to the project directory
+Run against the Firestore emulator (no credentials needed):
 
 ```bash
-  cd corsi
+npx firebase emulators:start --only firestore
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 SESSION_SECRET=any-32-character-string-here npm run dev
 ```
 
-Install dependencies
+Checks:
 
 ```bash
-  npm install
+npm run typecheck
+npm test
+npm run build
+# full browser flow (mints a session cookie instead of the Google popup)
+BASE_URL=http://localhost:3000 SESSION_SECRET=... ADMIN_EMAIL=you@example.com BACKDATE=1 \
+  FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node tests/e2e/flow.mjs
 ```
 
-Start the server
+Deploy Firestore rules and Auth config: `npx firebase deploy --only firestore,auth`.
 
-```bash
-  npm run dev
-```
+## Environment variables
 
-## Features
-
-- Forward and backward mode
-- Changable transition speed
-
-## Tech Stack
-
-- React
-- Zustand
-- unoCSS
+| Name | Notes |
+|---|---|
+| `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase web app config (public) |
+| `FIREBASE_SERVICE_ACCOUNT` | **Secret.** Service-account JSON from Firebase console → Project settings → Service accounts → *Generate new private key* (raw JSON or base64) |
+| `SESSION_SECRET` | **Secret.** Random string (32+ chars) that signs session cookies |
+| `PARTICIPANT_ID_SECRET` | **Secret.** 32+ random bytes; HMAC key for pseudonymous participant IDs. Never change it once data exists |
+| `ADMIN_EMAILS` | Comma-separated Google accounts with admin access |

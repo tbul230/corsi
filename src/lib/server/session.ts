@@ -2,6 +2,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { jwtVerify, SignJWT } from 'jose';
 import { participantIdFor, testPrefixFor } from './pseudonym';
+import { ADMIN_LOGIN, ADMIN_MAX_AGE, adminVersion, isAdminPayload } from '../admin-token';
 
 export const SESSION_COOKIE = 'corsi_session';
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -22,30 +23,21 @@ function secret() {
   return new TextEncoder().encode(s);
 }
 
-/** Admins are the participant codes in ADMIN_CODES (comma separated). */
-export function adminEmails(): string[] {
-  return `${process.env.ADMIN_CODES ?? ''},${process.env.ADMIN_EMAILS ?? ''}`
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
+export { ADMIN_LOGIN };
 
-/** Cookie identity issued only after the ADMIN_PASSWORD check (participant codes always look like P-XXXX). */
-export const ADMIN_LOGIN = 'admin';
+const isAdminLogin = (email: string) => email.toLowerCase() === ADMIN_LOGIN;
 
-export function isAdminEmail(email: string | null | undefined) {
-  if (!email) return false;
-  const e = email.toLowerCase();
-  return e === ADMIN_LOGIN || adminEmails().includes(e);
-}
-
-/** Session cookie: signed, httpOnly, lives only in the participant's own browser. `pid` is set only for admin test runs. */
+/**
+ * Session cookie: signed, httpOnly, lives only in the user's own browser. `pid` is set only for admin test runs.
+ * Admin cookies last 8 hours and carry a fingerprint of the current admin password (see lib/admin-token.ts).
+ */
 export async function createSessionToken(user: { uid: string; email: string; pid?: string }) {
-  return new SignJWT({ email: user.email, ...(user.pid ? { pid: user.pid } : {}) })
+  const admin = isAdminLogin(user.email);
+  return new SignJWT({ email: user.email, ...(user.pid ? { pid: user.pid } : {}), ...(admin ? { av: await adminVersion() } : {}) })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(user.uid)
     .setIssuedAt()
-    .setExpirationTime(`${MAX_AGE}s`)
+    .setExpirationTime(`${admin ? ADMIN_MAX_AGE : MAX_AGE}s`)
     .sign(secret());
 }
 
@@ -55,7 +47,7 @@ export async function setSessionCookie(user: { uid: string; email: string; pid?:
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: MAX_AGE
+    maxAge: isAdminLogin(user.email) ? ADMIN_MAX_AGE : MAX_AGE
   });
 }
 
@@ -63,7 +55,7 @@ export async function clearSessionCookie() {
   (await cookies()).delete(SESSION_COOKIE);
 }
 
-/** The signed-in Google user, or null. Admin status is re-evaluated on every request. */
+/** The signed-in user, or null. Admin status is re-evaluated on every request. */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
@@ -72,7 +64,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const uid = payload.sub;
     const email = String(payload.email ?? '');
     if (!uid || !email) return null;
-    const isAdmin = isAdminEmail(email);
+    const isAdmin = await isAdminPayload(payload);
+    // An old admin cookie (password changed since) is treated as signed out, not as a participant.
+    if (isAdminLogin(email) && !isAdmin) return null;
     const own = participantIdFor(uid);
     const requested = typeof payload.pid === 'string' ? payload.pid : '';
     // Only admins may act as one of their own test-run participants.

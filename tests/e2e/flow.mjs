@@ -3,7 +3,8 @@
 // session cookie the server issues after verifying a Google ID token (needs SESSION_SECRET).
 //
 //   BASE_URL=http://localhost:3200 SESSION_SECRET=... ADMIN_EMAIL=... node tests/e2e/flow.mjs
-//   (the server needs ADMIN_EMAILS to include ADMIN_EMAIL; the test mints session cookies directly)
+//   (the server needs ADMIN_EMAILS to include ADMIN_EMAIL and E2E_ALLOW_EMAIL_ADMINS=1 — test-only, never set on
+//   the real site; the test mints session cookies directly)
 //   With FIRESTORE_EMULATOR_HOST set, the 15-minute break is shortened in the emulator
 //   (BACKDATE=1) so the whole flow runs in a few minutes.
 import { chromium, devices } from 'playwright';

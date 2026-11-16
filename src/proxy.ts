@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { isAdminPayload } from './lib/admin-token';
 
 /**
- * Gate for every administrator page and API, evaluated on the server before any
- * admin page or route handler runs. The session cookie is only ever issued by /api/auth/session after
- * the participant's code and password were checked; admin status is decided here from
- * that code and the ADMIN_CODES list.
+ * Gate for every administrator page and API, evaluated on the server before any admin page or route handler
+ * runs. Admin cookies are only issued by /api/auth/session after the admin password (and the robot check)
+ * passed; here we verify the cookie's signature, expiry (8 hours) and that it was made with the current admin
+ * password (see lib/admin-token.ts).
  *   signed out → pages redirect to /admin/login, APIs return 401
  *   signed in but not an admin → 403
  */
@@ -14,28 +15,29 @@ export async function proxy(req: NextRequest) {
   if (pathname === '/admin/login') return NextResponse.next();
   const isApi = pathname.startsWith('/api/');
 
-  const email = await verifiedEmail(req.cookies.get('corsi_session')?.value);
-  if (!email) {
+  const session = await verifiedSession(req.cookies.get('corsi_session')?.value);
+  if (!session) {
     if (isApi) return NextResponse.json({ error: 'Please sign in with your code and password.', code: 'NOT_AUTHENTICATED' }, { status: 401 });
     return NextResponse.redirect(new URL('/admin/login', req.url));
   }
-  const admins = `${process.env.ADMIN_CODES ?? ''},${process.env.ADMIN_EMAILS ?? ''}`
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  if (email !== 'admin' && !admins.includes(email)) {
+  if (!(await isAdminPayload(session))) {
+    // An admin cookie made with an old password counts as signed out.
+    if (session.email === 'admin') {
+      if (isApi) return NextResponse.json({ error: 'Please sign in again.', code: 'NOT_AUTHENTICATED' }, { status: 401 });
+      return NextResponse.redirect(new URL('/admin/login', req.url));
+    }
     if (isApi) return NextResponse.json({ error: 'Administrator access required.', code: 'ADMIN_ONLY' }, { status: 403 });
-    return new NextResponse(forbiddenHtml(email), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    return new NextResponse(forbiddenHtml(session.email), { status: 403, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
   }
   return NextResponse.next();
 }
 
-async function verifiedEmail(token: string | undefined): Promise<string | null> {
+async function verifiedSession(token: string | undefined): Promise<{ email: string; av?: unknown } | null> {
   const secret = process.env.SESSION_SECRET;
   if (!token || !secret || secret.length < 32) return null;
   try {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), { algorithms: ['HS256'] });
-    return typeof payload.email === 'string' && payload.sub ? payload.email.toLowerCase() : null;
+    return typeof payload.email === 'string' && payload.sub ? { email: payload.email.toLowerCase(), av: payload.av } : null;
   } catch {
     return null;
   }

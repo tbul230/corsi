@@ -14,8 +14,8 @@ export default async function ResultsPage() {
       <div className="mb-6">
         <PageHeader
           eyebrow="Live experiment results"
-          title="How do breaks affect Corsi span?"
-          description="Calculated directly from completed tests and refreshed automatically. Other participants appear as #1, #2… and your own results as “You”. With small samples, treat differences as descriptive rather than conclusive."
+          title="Does the kind of break change your memory score?"
+          description="These update by themselves as students finish. Other students show up as #1, #2… and you show up as “You”. Score = how many blocks in a row you remembered."
         />
       </div>
       {user ? (

@@ -83,3 +83,13 @@ test('formatP never shows 0', () => {
   assert.equal(formatP(0.0432), '.043');
   assert.equal(formatP(0.25), '.25');
 });
+
+test('school-style p-values never round onto the 0.05 cut-off', async () => {
+  const { pText } = await import('../src/lib/simple-results.ts');
+  assert.equal(pText(0.0496), '0.0496');
+  assert.equal(pText(0.0504), '0.0504');
+  assert.equal(pText(0.05), '0.05');
+  assert.equal(pText(0.12), '0.12');
+  assert.equal(pText(0.004), '0.004');
+  assert.equal(pText(0.0004), 'less than 0.001');
+});

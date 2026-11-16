@@ -5,7 +5,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ErrorBar,
   LabelList,
   Legend,
   Line,
@@ -120,7 +119,7 @@ function conditionSummaryData(rows: ResultRow[], conditions: Condition[]) {
     }));
 }
 
-/** Mean span per break type, with ±1 SD error bars. */
+/** Average score per break type. */
 export function MeanSpanChart({ rows, palette: p, animate = true, conditions = [...CONDITIONS], onPickCondition, height = 280 }: ChartProps) {
   const data = conditionSummaryData(rows, conditions);
   return (
@@ -133,8 +132,8 @@ export function MeanSpanChart({ rows, palette: p, animate = true, conditions = [
           <Tooltip
             {...tooltip(p)}
             formatter={(v, _n, item) => {
-              const d = item.payload as { sdText: number | null; n: number };
-              return [v == null ? 'No data' : `${v} blocks${d.sdText != null ? ` (SD ${d.sdText})` : ''} · n=${d.n}`, 'Mean span'];
+              const d = item.payload as { n: number };
+              return [v == null ? 'No data' : `${v} blocks (${d.n} tests)`, 'Average score'];
             }}
           />
           <Bar
@@ -146,7 +145,6 @@ export function MeanSpanChart({ rows, palette: p, animate = true, conditions = [
             {data.map((d) => (
               <Cell key={d.condition} fill={CONDITION_INFO[d.condition].accent} />
             ))}
-            <ErrorBar dataKey="sd" width={6} strokeWidth={1.5} stroke={p.muted} direction="y" />
             <LabelList dataKey="meanSpan" position="insideBottom" offset={10} fill="#fff" fontSize={13} fontWeight={700} formatter={(v) => (v == null ? '' : String(v))} />
           </Bar>
         </BarChart>
@@ -167,7 +165,7 @@ export function AccuracyChart({ rows, palette: p, animate = true, conditions = [
           <YAxis tick={axis(p)} axisLine={false} tickLine={false} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} unit="%" />
           <Tooltip
             {...tooltip(p)}
-            formatter={(v, _n, item) => [v == null ? 'No data' : `${v}% · n=${(item.payload as { accuracyN: number }).accuracyN}`, 'Mean accuracy']}
+            formatter={(v, _n, item) => [v == null ? 'No data' : `${v}% · n=${(item.payload as { accuracyN: number }).accuracyN}`, 'Got it right']}
           />
           <Bar
             dataKey="meanAccuracy"
@@ -234,7 +232,7 @@ export function WithinPersonChart({ rows, palette: p, animate = true, conditions
   const matrix = participantMatrix(rows);
   const means = summariseByCondition(rows);
   const data = conditions.map((c) => {
-    const point: Record<string, number | string | null> = { name: CONDITION_INFO[c].short, Mean: means.find((m) => m.condition === c)?.meanSpan ?? null };
+    const point: Record<string, number | string | null> = { name: CONDITION_INFO[c].short, Average: means.find((m) => m.condition === c)?.meanSpan ?? null };
     for (const m of matrix) point[m.participant] = m[c] ?? null;
     return point;
   });
@@ -248,7 +246,7 @@ export function WithinPersonChart({ rows, palette: p, animate = true, conditions
           <Tooltip
             {...tooltip(p)}
             cursor={{ stroke: p.grid }}
-            itemSorter={(item) => (item.name === 'Mean' ? -1 : item.name === highlight ? 0 : 1)}
+            itemSorter={(item) => (item.name === 'Average' ? -1 : item.name === highlight ? 0 : 1)}
             formatter={(v, name) => [v == null ? 'Not completed' : `${v} blocks`, name]}
           />
           {matrix.map((m) => {
@@ -267,7 +265,7 @@ export function WithinPersonChart({ rows, palette: p, animate = true, conditions
               />
             );
           })}
-          <Line dataKey="Mean" stroke={p.neutral} strokeWidth={3.5} strokeDasharray="7 4" dot={{ r: 5, fill: p.neutral, strokeWidth: 0 }} {...anim(animate)} />
+          <Line dataKey="Average" stroke={p.neutral} strokeWidth={3.5} strokeDasharray="7 4" dot={{ r: 5, fill: p.neutral, strokeWidth: 0 }} {...anim(animate)} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -284,7 +282,7 @@ export function DistributionChart({ rows, palette: p, animate = true, conditions
       <ResponsiveContainer>
         <BarChart data={data.slice(0, Math.min(10, last + 1))} margin={{ top: 8, right: 8, left: -12, bottom: 12 }} barGap={1} barCategoryGap="18%">
           <CartesianGrid stroke={p.grid} vertical={false} />
-          <XAxis dataKey="span" tick={axis(p)} axisLine={false} tickLine={false} label={{ value: 'Corsi span (blocks)', position: 'insideBottom', offset: -8, fill: p.muted, fontSize: 12 }} />
+          <XAxis dataKey="span" tick={axis(p)} axisLine={false} tickLine={false} label={{ value: 'Score (blocks remembered)', position: 'insideBottom', offset: -8, fill: p.muted, fontSize: 12 }} />
           <YAxis tick={axis(p)} axisLine={false} tickLine={false} allowDecimals={false} domain={[0, max]} />
           <Tooltip {...tooltip(p)} labelFormatter={(l) => `Span ${l}`} formatter={(v, name) => [`${v} test${v === 1 ? '' : 's'}`, name]} />
           <Legend {...legend(p)} verticalAlign="top" height={28} />
@@ -307,7 +305,7 @@ export function OrderChart({ rows, palette: p, animate = true, height = 240 }: C
           <CartesianGrid stroke={p.grid} vertical={false} />
           <XAxis dataKey="name" tick={axis(p)} axisLine={false} tickLine={false} />
           <YAxis tick={axis(p)} axisLine={false} tickLine={false} domain={[0, 9]} ticks={[0, 3, 6, 9]} />
-          <Tooltip {...tooltip(p)} formatter={(v) => [v == null ? 'No data' : `${v} blocks`, 'Mean span']} />
+          <Tooltip {...tooltip(p)} formatter={(v) => [v == null ? 'No data' : `${v} blocks`, 'Average score']} />
           <Bar dataKey="meanSpan" fill={p.neutral} radius={[4, 4, 0, 0]} {...anim(animate)}>
             <LabelList dataKey="meanSpan" position="top" fill={p.text} fontSize={12} formatter={(v) => (v == null ? 'no data' : String(v))} />
           </Bar>
@@ -337,12 +335,12 @@ export function TimelineChart({ rows, palette: p, animate = true, conditions = [
             {...tooltip(p)}
             cursor={{ stroke: p.grid }}
             labelFormatter={(t) => new Date(Number(t)).toLocaleString()}
-            formatter={(v, name) => [name === 'Tests completed' ? String(v) : `${v} blocks`, name]}
+            formatter={(v, name) => [name === 'Tests done' ? String(v) : `${v} blocks`, name]}
           />
           <Legend {...legend(p)} verticalAlign="top" height={28} />
-          <Line yAxisId="n" dataKey="tests" name="Tests completed" stroke={p.muted} strokeDasharray="3 3" dot={false} type="stepAfter" {...anim(animate)} />
+          <Line yAxisId="n" dataKey="tests" name="Tests done" stroke={p.muted} strokeDasharray="3 3" dot={false} type="stepAfter" {...anim(animate)} />
           {conditions.map((c) => (
-            <Line key={c} yAxisId="span" dataKey={c} name={`${CONDITION_INFO[c].short} mean`} stroke={CONDITION_INFO[c].accent} strokeWidth={2.5} dot={false} connectNulls {...anim(animate)} />
+            <Line key={c} yAxisId="span" dataKey={c} name={`${CONDITION_INFO[c].short} average`} stroke={CONDITION_INFO[c].accent} strokeWidth={2.5} dot={false} connectNulls {...anim(animate)} />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -354,50 +352,50 @@ export function TimelineChart({ rows, palette: p, animate = true, conditions = [
 export const CHARTS = [
   {
     id: 'mean-span',
-    title: 'Average Corsi span by break type',
-    caption: 'Mean span (blocks) with ±1 SD error bars. n = completed tests per condition. Missing data shows no bar, never zero.',
+    title: 'Average score after each break',
+    caption: 'Score = how many blocks in a row a student remembered. n = number of tests.',
     Chart: MeanSpanChart,
     wide: false
   },
   {
     id: 'accuracy',
-    title: 'Accuracy by break type',
-    caption: 'Mean % of trials answered correctly in each condition.',
+    title: 'How often students got it right',
+    caption: 'Percent of rounds answered correctly after each break.',
     Chart: AccuracyChart,
     wide: false
   },
   {
     id: 'within-person',
-    title: 'Each participant across the three breaks',
-    caption: 'One faint line per participant; the dashed line is the group mean. Gaps are conditions not yet completed.',
+    title: 'Every student’s scores across the breaks',
+    caption: 'Each grey line is one student. The dashed blue line is the average. Your line is yellow.',
     Chart: WithinPersonChart,
     wide: false
   },
   {
     id: 'distribution',
-    title: 'Distribution of spans',
-    caption: 'How many tests ended at each span, per break type.',
+    title: 'How many students got each score',
+    caption: 'The number of tests that ended at each score, for each break.',
     Chart: DistributionChart,
     wide: false
   },
   {
     id: 'participants',
-    title: 'Individual participant comparison',
-    caption: "Each participant's span in every condition they have completed.",
+    title: 'Each student’s scores',
+    caption: 'Every student’s score after each break they have done so far.',
     Chart: ParticipantChart,
     wide: true
   },
   {
     id: 'timeline',
-    title: 'Results over time',
-    caption: 'Running mean span per break type as tests are completed (left axis), and total tests completed (right axis, dashed).',
+    title: 'How the averages changed over time',
+    caption: 'The average score for each break as more students finished. The dashed line is how many tests were done (right side).',
     Chart: TimelineChart,
     wide: false
   },
   {
     id: 'order',
-    title: 'Practice-effect check: span by completion order',
-    caption: "Mean span on participants' 1st, 2nd and 3rd condition regardless of break type. A rising trend suggests practice effects.",
+    title: 'Did students get better with practice?',
+    caption: 'Average score on each student’s 1st, 2nd and 3rd test, no matter which break. If it goes up, practice is helping.',
     Chart: OrderChart,
     wide: false
   }

@@ -6,8 +6,9 @@ import { Alert, Spinner } from '@/components/ui';
 import { CHARTS, DARK, LIGHT, type ChartPalette } from '@/components/charts/StudyCharts';
 import type { ResultRow } from '@/lib/stats';
 import { buildSummary, summaryCsv, summaryHtml, summaryTsv, SummaryTableView } from '@/components/charts/SummaryTable';
+import { pairSummaries, pValuesText } from '@/lib/simple-results';
 
-const TABLE_TITLE = 'Corsi span by break type: summary and significance tests';
+const TABLE_TITLE = 'Results table';
 
 const REFRESH_MS = 10_000;
 
@@ -116,8 +117,8 @@ export default function AdminCharts({ includeTest }: { includeTest: boolean }) {
   async function copyTable() {
     if (!data) return;
     const s = buildSummary(data.sessions);
-    const html = summaryHtml(s, TABLE_TITLE, footerText(data, includeTest));
-    const text = summaryTsv(s, TABLE_TITLE, footerText(data, includeTest));
+    const html = summaryHtml(s, footerText(data, includeTest));
+    const text = summaryTsv(s, footerText(data, includeTest));
     try {
       if ('ClipboardItem' in window && navigator.clipboard?.write) {
         await navigator.clipboard.write([
@@ -126,9 +127,19 @@ export default function AdminCharts({ includeTest }: { includeTest: boolean }) {
       } else {
         await navigator.clipboard.writeText(text);
       }
-      note('Table copied — paste it into Google Slides, PowerPoint, Docs or Sheets as an editable table.');
+      note('Table copied! Paste it into Google Slides, PowerPoint or Docs. (For Canva, use “Copy picture”.)');
     } catch {
       note('Could not copy the table (your browser may have blocked clipboard access). Use CSV instead.');
+    }
+  }
+
+  async function copyPValues() {
+    if (!data) return;
+    try {
+      await navigator.clipboard.writeText(pValuesText(pairSummaries(data.sessions)));
+      note('p-values copied! Paste them anywhere, even a Canva text box.');
+    } catch {
+      note('Could not copy. Your browser blocked it — try again or use another browser.');
     }
   }
 
@@ -209,21 +220,24 @@ export default function AdminCharts({ includeTest }: { includeTest: boolean }) {
             <div>
               <h3 className="text-base font-semibold">{TABLE_TITLE}</h3>
               <p className="mt-0.5 text-xs" style={{ color: palette.muted }}>
-                Pairwise comparisons are paired t-tests on participants who completed both breaks, Holm-adjusted for three comparisons.
+                Updates by itself as students finish. Copy it into your presentation with the buttons.
               </p>
             </div>
             <div className="no-export flex shrink-0 flex-wrap gap-1.5">
               <button className="rounded-lg px-2.5 py-1 text-xs font-semibold text-white" style={{ background: '#3b82f6' }} onClick={copyTable} data-testid="copy-table">
                 Copy table
               </button>
+              <button className="rounded-lg border px-2.5 py-1 text-xs font-medium" style={btnBorder} onClick={copyPValues} data-testid="copy-pvalues">
+                Copy p-values
+              </button>
               <button className="rounded-lg border px-2.5 py-1 text-xs font-medium" style={btnBorder} onClick={() => copy('summary-table')} disabled={busy !== null} data-testid="copy-table-image">
-                Copy image
+                Copy picture
               </button>
               <button className="rounded-lg border px-2.5 py-1 text-xs font-medium" style={btnBorder} onClick={() => download('summary-table')} disabled={busy !== null} data-testid="download-summary-table">
-                {busy === 'summary-table' ? '…' : 'PNG'}
+                {busy === 'summary-table' ? '…' : 'Save picture'}
               </button>
               <button className="rounded-lg border px-2.5 py-1 text-xs font-medium" style={btnBorder} onClick={downloadCsv} data-testid="download-table-csv">
-                CSV
+                Spreadsheet
               </button>
             </div>
           </div>

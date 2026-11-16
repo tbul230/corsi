@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ResultsCharts from '@/components/ResultsCharts';
 import AdminCharts from './AdminCharts';
@@ -91,6 +91,19 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
   const [selectedParticipant, setSelectedParticipant] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Time the server data last arrived (it changes identity on every refresh).
+  // Set in the browser only (a server-rendered time would differ from the browser's and break hydration).
+  const [dataTime, setDataTime] = useState<string | undefined>(undefined);
+  useEffect(() => setDataTime(new Date().toISOString()), [allData]);
+
+  // Keep the Overview numbers, charts and p-values live: re-fetch the data every 15 seconds while the tab is visible.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') router.refresh();
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [router]);
 
   const { participants, sessions, trials, events } = data;
   const pById = useMemo(() => new Map(participants.map((p) => [p.id, p])), [participants]);
@@ -205,7 +218,7 @@ export default function AdminDashboard({ data: allData, email }: { data: AdminDa
               </div>
             </div>
           </div>
-          <ResultsCharts rows={rows} totalParticipants={participants.length} participantLabel="Code" />
+          <ResultsCharts rows={rows} totalParticipants={participants.length} participantLabel="Code" updatedAt={dataTime} />
         </div>
       ) : null}
 

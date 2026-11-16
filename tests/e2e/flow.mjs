@@ -3,6 +3,7 @@
 // session cookie the server issues after verifying a Google ID token (needs SESSION_SECRET).
 //
 //   BASE_URL=http://localhost:3200 SESSION_SECRET=... ADMIN_EMAIL=... node tests/e2e/flow.mjs
+//   (the server needs ADMIN_EMAILS to include ADMIN_EMAIL; the test mints session cookies directly)
 //   With FIRESTORE_EMULATOR_HOST set, the 15-minute break is shortened in the emulator
 //   (BACKDATE=1) so the whole flow runs in a few minutes.
 import { chromium, devices } from 'playwright';
@@ -117,22 +118,23 @@ const post = async (page, action, data) => {
   const anon = await (await browser.newContext()).newPage();
   anon.on('pageerror', (e) => errors.push(e.message));
   await anon.goto(BASE);
-  check('landing: single "Sign in with Google" button', (await anon.locator('[data-testid=google-signin]').count()) === 1 && (await anon.locator('input').count()) === 0);
+  check('landing: code + password sign-in form', (await anon.locator('[data-testid=signin-submit]').count()) === 1 && (await anon.locator('[data-testid=password-input]').count()) === 1);
   for (const path of ['/dashboard', '/select', '/session/x__youtube']) {
     await anon.goto(BASE + path);
-    check(`signed out: ${path} → sign-in`, anon.url().endsWith('/register') && (await anon.locator('[data-testid=google-signin]').count()) === 1);
+    check(`signed out: ${path} → sign-in`, anon.url().endsWith('/register') && (await anon.locator('[data-testid=signin-submit]').count()) === 1);
   }
   await anon.goto(`${BASE}/results`);
-  check('signed out: /results asks to sign in', (await anon.locator('[data-testid=google-signin]').count()) === 1);
-  for (const [method, path] of [['POST', '/api/participant/start-break'], ['POST', '/api/participant/state'], ['GET', '/api/results'], ['GET', '/api/admin/export?type=sessions'], ['POST', '/api/admin/action'], ['POST', '/api/auth/session']]) {
+  check('signed out: /results asks to sign in', (await anon.locator('[data-testid=signin-submit]').count()) === 1);
+  for (const [method, path] of [['POST', '/api/participant/start-break'], ['POST', '/api/participant/state'], ['GET', '/api/results'], ['GET', '/api/admin/export?type=sessions'], ['POST', '/api/admin/action']]) {
     const r = await anon.request.fetch(BASE + path, { method, data: method === 'POST' ? {} : undefined });
     check(`signed out: ${method} ${path} → 401`, r.status() === 401, String(r.status()));
   }
-  const badToken = await anon.request.post(`${BASE}/api/auth/session`, { data: { idToken: 'eyJhbGciOiJSUzI1NiJ9.e30.c2ln' } });
-  check('forged Google ID token rejected (401)', badToken.status() === 401);
+  const badLogin = await anon.request.post(`${BASE}/api/auth/session`, { data: { mode: 'login', code: 'P-ZZZZ', password: 'wrong-password' } });
+  check('wrong code/password rejected (401)', badLogin.status() === 401, String(badLogin.status()));
+  const badAdmin = await anon.request.post(`${BASE}/api/auth/session`, { data: { mode: 'admin', password: 'guess' } });
+  check('wrong admin password rejected (401)', badAdmin.status() === 401, String(badAdmin.status()));
   await anon.goto(`${BASE}/admin`);
-  check('admin page → Google login', anon.url().includes('/admin/login') && (await anon.locator('[data-testid=google-signin]').count()) === 1);
-  check('no admin password field anymore', (await anon.locator('input[type=password]').count()) === 0);
+  check('admin page → admin login (password only)', anon.url().includes('/admin/login') && (await anon.locator('input[type=password]').count()) === 1);
 
   // ---------- participant (Google user) ----------
   const uid = `e2e_${RUN}`;
@@ -249,7 +251,8 @@ const post = async (page, action, data) => {
   await page.waitForSelector('[data-testid=results-charts], [data-testid=results-empty]', { timeout: 20000 });
   check('charts render from Firestore', await page.locator('[data-testid=results-charts]').count());
   const resultsText = await page.textContent('body');
-  check('results show codes, no identity', resultsText.includes(myCode) && !resultsText.includes('Foxtrot') && !resultsText.includes(uid));
+  // Codes are sign-in IDs, so the public results show #1, #2… and "You" — never anyone's code.
+  check('results show "You", no codes or identity', resultsText.includes('You') && !resultsText.includes(myCode) && !resultsText.includes('Foxtrot') && !resultsText.includes(uid));
 
   // ---------- another Google account gets its own anonymous participant ----------
   const otherReg = await post(intruder, 'register', { consent: { participation: true, quiet: true, guidelines: true } });
@@ -267,7 +270,7 @@ const post = async (page, action, data) => {
   ap.on('dialog', (d) => d.accept());
   await ap.goto(`${BASE}/admin`);
   await ap.waitForSelector('text=Corsi experiment data');
-  check('admin email recognised without password', true);
+  check('admin account recognised', true);
   await ap.click('role=tab[name=/Participants/]');
   const adminText = await ap.evaluate(() => document.body.innerText);
   check('admin sees participant by anonymous code only', adminText.includes(myCode) && !adminText.includes('Foxtrot') && !adminText.includes(uid));
@@ -290,6 +293,7 @@ const post = async (page, action, data) => {
 
   // test mode from admin dashboard
   await ap.click('role=tab[name=/Export/]');
+  const pubBefore = (await (await ap.request.get(`${BASE}/api/results`)).json()).sessions.length;
   await ap.click('[data-testid=start-test-run]');
   await ap.waitForURL('**/dashboard');
   check('test run starts without any code', await ap.locator('[data-testid=test-mode-banner]').count());
@@ -310,7 +314,7 @@ const post = async (page, action, data) => {
   await ap.waitForSelector('[data-testid=results]');
   check('test result marked not counted', (await ap.textContent('[data-testid=results]')).includes('not counted'));
   const pub = await (await ap.request.get(`${BASE}/api/results`)).json();
-  check('test run excluded from public results', pub.sessions.every((r) => r.condition !== 'youtube'));
+  check('test run excluded from public results', pub.sessions.length === pubBefore, `${pubBefore} → ${pub.sessions.length}`);
   await ap.click('[data-testid=redo-youtube]');
   await ap.waitForURL('**/dashboard');
   await ap.waitForTimeout(1200);

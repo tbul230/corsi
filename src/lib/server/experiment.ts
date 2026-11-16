@@ -593,7 +593,7 @@ export async function getPublicResults(viewerPid?: string) {
   const real = ps.docs
     .map((d) => ({ id: d.id, ...(d.data() as ParticipantDoc) }))
     .filter((p) => !p.is_test)
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
   const label = new Map(real.map((p, i) => [p.id, p.id === viewerPid ? 'You' : `#${i + 1}`]));
   const rows = ss.docs
     .map((d) => d.data() as SessionDoc)
@@ -658,7 +658,7 @@ export async function getAdminData() {
         created_at: p.created_at
       };
     })
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
   const sessionsList = ss.docs
     .map((d) => {
       const s = d.data() as SessionDoc;
@@ -691,19 +691,19 @@ export async function getAdminData() {
         created_at: s.created_at
       };
     })
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    .sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")));
   const trials = ts.docs
     .map((d) => {
       const t = d.data() as TrialDoc;
       return { id: `${t.session_id}/${d.id}`, ...t };
     })
-    .sort((a, b) => a.responded_at.localeCompare(b.responded_at));
+    .sort((a, b) => String(a.responded_at ?? "").localeCompare(String(b.responded_at ?? "")));
   const events = es.docs
     .map((d, i) => {
       const e = d.data() as { session_id: string; event_type: string; client_remaining_seconds: number | null; occurred_at: string };
       return { id: i + 1, ...e };
     })
-    .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at));
+    .sort((a, b) => String(a.occurred_at ?? "").localeCompare(String(b.occurred_at ?? "")));
   const deletions = dl.docs.map((d, i) => {
     const x = d.data() as { deleted_at: string; deleted_by_email: string | null; kind: 'participant' | 'session'; summary: string | null };
     return { id: i + 1, deleted_at: x.deleted_at, deleted_by_email: x.deleted_by_email, kind: x.kind, summary: x.summary };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CONDITIONS, CONDITION_INFO, type Condition } from '@/lib/constants';
 import { overall, participantMatrix, type ResultRow } from '@/lib/stats';
 import { CHARTS, DARK } from './charts/StudyCharts';
@@ -31,17 +31,27 @@ export default function ResultsCharts({
   rows,
   totalParticipants,
   participantLabel = 'Participant',
-  highlight
+  highlight,
+  updatedAt
 }: {
   rows: ResultRow[];
   totalParticipants: number;
   participantLabel?: string;
   /** Label of the viewer's own results (e.g. "You"), emphasised in the charts. */
   highlight?: string;
+  /** When the data was last fetched (shown on the p-value section so you can see it is live). */
+  updatedAt?: string;
 }) {
   const [activeConditions, setActiveConditions] = useState<Condition[]>([...CONDITIONS]);
   const [participant, setParticipant] = useState<string>('all');
   const [showTable, setShowTable] = useState(false);
+  // Grow-in animation only when the page first opens. Re-animating on every live refresh made the numbers on the
+  // bars disappear for a moment every 10 seconds (labels are hidden while an animation plays).
+  const [animate, setAnimate] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setAnimate(false), 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   const participants = useMemo(
     () => [...new Set(rows.map((r) => r.participant))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
@@ -119,11 +129,11 @@ export default function ResultsCharts({
 
       {/* Chart 4: overall */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Total participants" value={participant === 'all' ? totalParticipants : 1} hint="registered" />
-        <Stat label="Completed tests" value={totals.completedTests} hint={`${totals.participantsWithResults} with results`} />
-        <Stat label="Average span" value={totals.meanSpan ?? '—'} hint="blocks" />
-        <Stat label="Highest span" value={totals.maxSpan ?? '—'} hint="blocks" />
-        <Stat label="Average accuracy" value={totals.meanAccuracy != null ? `${totals.meanAccuracy}%` : '—'} />
+        <Stat label="Students signed up" value={participant === 'all' ? totalParticipants : 1} />
+        <Stat label="Tests finished" value={totals.completedTests} />
+        <Stat label="Average score" value={totals.meanSpan ?? '—'} hint="blocks remembered" />
+        <Stat label="Highest score" value={totals.maxSpan ?? '—'} hint="blocks remembered" />
+        <Stat label="Got it right" value={totals.meanAccuracy != null ? `${totals.meanAccuracy}%` : '—'} />
       </div>
 
       <p className="-mt-1 text-xs muted">Hover or tap a chart for exact values. Click a bar to focus on that break type; click it again to show all.</p>
@@ -132,14 +142,14 @@ export default function ResultsCharts({
         {CHARTS.map(({ id, title, caption, Chart, wide }) => (
           <ChartCard key={id} title={title} subtitle={caption} className={wide ? 'lg:col-span-2' : ''}>
             <div data-testid={`chart-${id}`}>
-              <Chart rows={filtered} palette={DARK} conditions={activeConditions} highlight={highlight} onPickCondition={pickCondition} />
+              <Chart rows={filtered} palette={DARK} conditions={activeConditions} highlight={highlight} onPickCondition={pickCondition} animate={animate} />
             </div>
           </ChartCard>
         ))}
       </div>
 
       {/* Significance tests use every participant (not the participant filter), for the selected break types. */}
-      <PValueCalculator rows={rows} conditions={activeConditions} />
+      <PValueCalculator rows={rows} conditions={activeConditions} updatedAt={updatedAt} />
 
       <div>
         <button className="btn btn-glass text-sm" onClick={() => setShowTable((s) => !s)} aria-expanded={showTable}>
